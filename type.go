@@ -3,7 +3,7 @@
 // license that can be found in the gotype LICENSE file.
 // Author: jcdotter
 
-package vals
+package gotype
 
 import (
 	"reflect"
@@ -71,7 +71,11 @@ func reflectType(t reflect.Type) *rtype {
 // New returns a new indirect Value of the Type
 func (r *rtype) New() VALUE {
 	if r != nil {
-		return RefValue(reflect.New(toType(r)).Elem())
+		n := reflect.New(toType(r))
+		if r.Kind() != Pointer {
+			n = n.Elem()
+		}
+		return RefValue(n)
 	}
 	panic("call to New on nil type")
 }

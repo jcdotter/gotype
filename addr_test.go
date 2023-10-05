@@ -3,7 +3,7 @@
 // license that can be found in the gotype LICENSE file.
 // Author: jcdotter
 
-package vals
+package gotype
 
 import (
 	"fmt"
@@ -11,15 +11,6 @@ import (
 	"testing"
 	"unsafe"
 )
-
-type string_struct struct {
-	V1 string
-	V2 string
-}
-
-type string_single_struct struct {
-	V1 string
-}
 
 func TestAddrs(t *testing.T) {
 
@@ -46,6 +37,11 @@ func TestAddrs(t *testing.T) {
 	type map_struct struct {
 		V1 map[string]string
 		V2 map[string]string
+	}
+
+	type string_struct struct {
+		V1 string
+		V2 string
 	}
 
 	type struct_struct struct {
@@ -593,6 +589,10 @@ func TestEmptySingleAddrs(t *testing.T) {
 		V1 map[string]string
 	}
 
+	type string_single_struct struct {
+		V1 string
+	}
+
 	type struct_struct struct {
 		V1 string_single_struct
 	}
@@ -963,7 +963,7 @@ func TestEmptyPtrs(t *testing.T) {
 	}
 }
 
-func vget(v VALUE, i int) VALUE {
+/* func vget(v VALUE, i int) VALUE {
 	switch v.Kind() {
 	case Bool, Int, String:
 		return v
@@ -974,7 +974,7 @@ func vget(v VALUE, i int) VALUE {
 	default:
 		return vget(v.Index(i), i)
 	}
-}
+} */
 
 func vset(v VALUE, i int, a any) VALUE {
 	switch v.Kind() {
@@ -1114,7 +1114,7 @@ func psingleset(v VALUE, i int) VALUE {
 	case String:
 		return v.SetIndex(i, "true")
 	case Struct:
-		return v.SetIndex(i, string_single_struct{"true"})
+		return v.SetIndex(i, string_struct_single{"true"})
 	case Pointer:
 		switch v.Elem().elemType().elem().Kind() {
 		case Bool:
@@ -1139,7 +1139,7 @@ func psingleset(v VALUE, i int) VALUE {
 			x := "true"
 			return v.SetIndex(i, &x)
 		case Struct:
-			x := string_single_struct{"true"}
+			x := string_struct_single{"true"}
 			return v.SetIndex(i, &x)
 		}
 	}

@@ -3,7 +3,7 @@
 // license that can be found in the gotype LICENSE file.
 // Author: jcdotter
 
-package vals
+package gotype
 
 import (
 	"reflect"

@@ -3,7 +3,7 @@
 // license that can be found in the gotype LICENSE file.
 // Author: James Dotter
 
-package vals
+package gotype
 
 import (
 	"errors"

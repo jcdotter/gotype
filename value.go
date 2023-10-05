@@ -3,7 +3,7 @@
 // license that can be found in the gotype LICENSE file.
 // Author: jcdotter
 
-package vals
+package gotype
 
 import (
 	"reflect"
@@ -70,6 +70,8 @@ func (v VALUE) New(init ...bool) VALUE {
 	return v.typ.New()
 }
 
+// add init func
+
 // NewDeep returns a new empty value of VALUE type
 // with matching number of elements and no nil spaces
 func (v VALUE) NewDeep() VALUE {
@@ -88,7 +90,7 @@ func (v VALUE) NewDeep() VALUE {
 			return
 		})
 	case Pointer:
-		n.elem().Set(v.elem().NewDeep())
+		n.Elem().Set(v.Elem().NewDeep())
 	case Slice:
 		n.Extend(v.Len())
 		(SLICE)(v).ForEach(func(i int, k string, v VALUE) (brake bool) {
@@ -159,23 +161,15 @@ func (v VALUE) Len() int {
 	panic("cannot call Len on type " + v.Kind().String())
 }
 
-func (v VALUE) elem() VALUE {
-	v.typ, v.ptr = (*ptrType)(unsafe.Pointer(v.typ)).elem, *(*unsafe.Pointer)(v.ptr)
-	return v
-}
-
 // Elem returns the underlying value of a pointer
 func (v VALUE) Elem() VALUE {
-	if v.Kind() == Pointer {
-		v = v.elem()
-	}
-	return v.SetType()
+	return RefValue(v.Reflect().Elem())
 }
 
 // ElemDeep cascades a series of pointers to return the underlying VALUE
 func (v VALUE) ElemDeep() VALUE {
 	for v.Kind() == Pointer {
-		v = v.elem()
+		v = v.Elem()
 	}
 	return v
 }
@@ -298,7 +292,7 @@ func (v VALUE) Set(a any) VALUE {
 			**(**unsafe.Pointer)(v.ptr) = *(*unsafe.Pointer)(n.ptr)
 		} else {
 			//*(*unsafe.Pointer)(v.ptr) = n.ptr
-			v.elem().setMatched(n)
+			v.Elem().setMatched(n)
 		}
 		return v
 	default:
@@ -326,7 +320,7 @@ func (v VALUE) setMatched(n VALUE) VALUE {
 			**(**unsafe.Pointer)(v.ptr) = **(**unsafe.Pointer)(n.ptr)
 		} else {
 			//*(*unsafe.Pointer)(v.ptr) = *(*unsafe.Pointer)(n.ptr)
-			return v.elem().setMatched(n.Elem())
+			return v.Elem().setMatched(n.Elem())
 		}
 	case Slice: // slice header size
 		*(*[24]byte)(v.ptr) = *(*[24]byte)(n.ptr)
