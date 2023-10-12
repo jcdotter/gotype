@@ -118,9 +118,25 @@ func (m MAP) Keys() []string {
 // returns nil pointer if key does not exist
 func (m MAP) Index(k string) VALUE {
 	t := (*mapType)(unsafe.Pointer(m.typ)).elem
-	p := mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k)
-	f := t.flag()
-	return VALUE{t, p, f}.SetType()
+	if t.IfaceIndir() {
+		return VALUE{
+			t,
+			mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k),
+			t.flag(),
+		}.SetType()
+	}
+	return VALUE{
+		t,
+		*(*unsafe.Pointer)(mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k)),
+		m.flag&(flagIndir|flagAddr) | flag(t.Kind()),
+	}.SetType()
+	/* p := mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k)
+	f := m.flag | flag(t.Kind())
+	if t.IfaceIndir() {
+		p = *(*unsafe.Pointer)(p)
+	}
+	f = t.flag()
+	return VALUE{t, p, f}.SetType() */
 }
 
 // ForEach executes function f on each item in ARRAY,

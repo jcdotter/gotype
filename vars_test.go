@@ -137,9 +137,9 @@ type any_struct struct {
 
 func createTestVars() map[string]any {
 	var (
-		b = true
-		i = 1
-		s = "true"
+		b = false
+		i = 0
+		s = "false"
 	)
 
 	return map[string]any{
