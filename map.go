@@ -422,36 +422,25 @@ func (m MAP) StructTagged(tag string) STRUCT {
 	return StructOf(s.Interface())
 }
 
-// StructScan reads gotype MAP into the struct provided
+// Scan reads gotype MAP into the struct pointer dest,
 // if tag is empty, Field names will be used to read Map keys into Struct
-func (m MAP) StructScan(s STRUCT, tag string, subtag string) STRUCT {
-	if tag == "" {
-		for _, f := range (*structType)(unsafe.Pointer(s.typ)).fields {
-			n := f.name.name()
-			v := m.Index(n)
-			if v.ptr != nil {
-				VALUE{f.typ, unsafe.Pointer(uintptr(s.ptr) + f.offset), f.typ.flag()}.Set(v)
-			}
-		}
-	} else if subtag == "" {
-		for _, f := range (*structType)(unsafe.Pointer(s.typ)).fields {
-			t := getTagValue(f.name.tag(), tag, `"`[0])
-			v := m.Index(t)
-			if v.ptr != nil {
-				VALUE{f.typ, unsafe.Pointer(uintptr(s.ptr) + f.offset), f.typ.flag()}.Set(v)
-			}
-		}
-	} else {
-		for _, f := range (*structType)(unsafe.Pointer(s.typ)).fields {
-			t := getTagValue(f.name.tag(), tag, `"`[0])
-			st := getTagValue(t, subtag, `'`[0])
-			v := m.Index(st)
-			if v.ptr != nil {
-				VALUE{f.typ, unsafe.Pointer(uintptr(s.ptr) + f.offset), f.typ.flag()}.Set(v)
-			}
-		}
+func (m MAP) Scan(dest any, tags ...string) {
+	d := ValueOf(dest).Elem().STRUCT()
+	var dest_idx map[string]FIELD
+	switch len(tags) {
+	case 0:
+		dest_idx = d.FieldIndex()
+	case 1:
+		dest_idx = d.TagIndex(tags[0])
+	default:
+		dest_idx = d.SubTagIndex(tags[0], tags[1])
 	}
-	return s
+	m.ForEach(func(i int, k string, v VALUE) (brake bool) {
+		if dest_fld, found := dest_idx[k]; found {
+			dest_fld.Set(v)
+		}
+		return
+	})
 }
 
 // JSON returns gotype MAP as gotype JSON

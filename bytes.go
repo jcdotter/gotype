@@ -82,10 +82,7 @@ func (b BYTES) Bytes() []byte {
 
 // Bool returns gotype BYTES as bool
 func (b BYTES) Bool() bool {
-	if b[0] == 0 {
-		return false
-	}
-	return true
+	return b[0] != 0x0 && b[0] != 0x46 && b[0] != 0x66
 }
 
 // BOOL returns gotype BYTES as gotype BOOL
@@ -99,9 +96,9 @@ func (b BYTES) Int() int {
 	l := len(b)
 	switch l {
 	case 1, 2, 4, 8:
-		p := uintptr(unsafe.Pointer(&i))
+		p := unsafe.Pointer(&i)
 		for n := 0; n < l; n++ {
-			*(*uint8)(unsafe.Pointer(p + uintptr(n))) = b[n]
+			*(*uint8)(offseti(p, n)) = b[n]
 		}
 	default:
 		panic("cannot convert to int")
@@ -120,9 +117,9 @@ func (b BYTES) Uint() uint {
 	l := len(b)
 	switch l {
 	case 1, 2, 4, 8:
-		p := uintptr(unsafe.Pointer(&i))
+		p := unsafe.Pointer(&i)
 		for n := 0; n < l; n++ {
-			*(*uint8)(unsafe.Pointer(p + uintptr(n))) = b[n]
+			*(*uint8)(offseti(p, n)) = b[n]
 		}
 	default:
 		panic("cannot convert to uint")
@@ -136,9 +133,9 @@ func (b BYTES) Float64() float64 {
 	l := len(b)
 	switch l {
 	case 1, 2, 4, 8:
-		p := uintptr(unsafe.Pointer(&i))
+		p := unsafe.Pointer(&i)
 		for n := 0; n < l; n++ {
-			*(*uint8)(unsafe.Pointer(p + uintptr(n))) = b[n]
+			*(*uint8)(offseti(p, n)) = b[n]
 		}
 	default:
 		panic("cannot convert to float64")
@@ -174,6 +171,22 @@ func (b BYTES) SLICE() SLICE {
 	} else {
 		return (SLICE)(v)
 	}
+}
+
+// TIME returns gotype BYTES as a gotype TIME
+func (b BYTES) TIME() TIME {
+	if len(b) == 8 {
+		return b.INT().TIME()
+	}
+	return b.STRING().TIME()
+}
+
+// UUID returns gotype BYTES as a gotype UUID
+func (b BYTES) UUID() UUID {
+	if b.CanUuid() {
+		return UUID(b)
+	}
+	panic("cannot convert bytes to uuid")
 }
 
 // JSON returns gotype BYTES as gotype JSON
@@ -310,10 +323,9 @@ func JoinBytes(bytes ...byte) []byte {
 // of a kind with a fixed number of bytes (eg. int)
 func (v VALUE) BytesFixedLen() []byte {
 	l := v.typ.size
-	u := uintptr(v.ptr)
 	b := make([]byte, l)
 	for i := uintptr(0); i < l; i++ {
-		b[l-1-i] = *(*byte)(unsafe.Pointer(u + i))
+		b[i] = *(*byte)(offset(v.ptr, i))
 	}
 	return b
 }

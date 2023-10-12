@@ -59,7 +59,7 @@ func (v VALUE) TIME() TIME {
 	case String:
 		return (*STRING)(v.ptr).TIME()
 	case Bytes:
-		return STRING(*(*[]byte)(v.ptr)).TIME()
+		return (*BYTES)(v.ptr).TIME()
 	case Time:
 		return *(*TIME)(v.ptr)
 	case Pointer:

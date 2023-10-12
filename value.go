@@ -28,6 +28,14 @@ func ValueOf(a any) VALUE {
 	return FromReflect(v)
 }
 
+func ValueOfV(a any) VALUE {
+	if n, is := a.(VALUE); !is {
+		return ValueOf(a)
+	} else {
+		return n
+	}
+}
+
 func FromReflect(v reflect.Value) VALUE {
 	return *(*VALUE)(unsafe.Pointer(&v))
 }
@@ -232,7 +240,7 @@ func (v VALUE) ForEach(f func(i int, k string, v VALUE) (brake bool)) {
 // SetIndex sets the value of a key (or index) for a
 // slice, array, map, struct or string
 func (v VALUE) SetIndex(key any, val any) VALUE {
-	k := ValueOf(key)
+	k := ValueOfV(key)
 	switch v.Kind() {
 	case Array:
 		(ARRAY)(v).Index(k.Int()).Set(val)
@@ -268,7 +276,8 @@ func (v VALUE) SetIndex(key any, val any) VALUE {
 
 // Set updates the VALUE to a and returns VALUE
 func (v VALUE) Set(a any) VALUE {
-	n := ValueOf(a)
+	v = v.SetType()
+	n := ValueOfV(a).SetType()
 	switch {
 	case v.typ == n.typ:
 		return v.setMatched(n)
@@ -336,6 +345,7 @@ func (v VALUE) setUnmatched(n VALUE) VALUE {
 		*(*float64)(v.ptr) = n.Float64()
 	case Array, Map, Slice:
 		// must have identical type match
+		panic("type mismatch on set value")
 	case Pointer:
 		v, n = v.ElemDeep(), n.ElemDeep()
 		if v.typ == n.typ {

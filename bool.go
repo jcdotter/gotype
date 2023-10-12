@@ -72,7 +72,7 @@ func (v VALUE) Bool() bool {
 		case Struct:
 			return (STRUCT)(v).Bool()
 		case Bytes:
-			return STRING(*(*[]byte)(v.ptr)).Bool()
+			return (*BYTES)(v.ptr).Bool()
 		}
 	}
 	panic("cannot convert value to bool")

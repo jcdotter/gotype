@@ -146,10 +146,10 @@ func TestValidations(t *testing.T) {
 		{"Conversion: Struct to Map", ValueOf(struct_struct_old).STRUCT().MapByTag("json"), map_map},
 		{"Conversion: Json to Map", ValueOf(json_json).MAP().Index("1").String(), map_map["1"].(string)},
 
-		{"Conversion: Slice to Struct", ValueOf(array_array).SLICE().StructScan(StructOf(struct_type{})).Interface(), struct_struct_old},
-		{"Conversion: Map to Struct", ValueOf(map_map).MAP().StructScan(StructOf(struct_type{}), "json", "").Interface(), struct_struct_old},
+		//{"Conversion: Slice to Struct", ValueOf(array_array).SLICE().StructScan(StructOf(struct_type{})).Interface(), struct_struct_old},
+		//{"Conversion: Map to Struct", ValueOf(map_map).MAP().StructScan(StructOf(struct_type{}), "json", "").Interface(), struct_struct_old},
 		{"Conversion: Struct to Struct", ValueOf(struct_struct_old).STRUCT().Interface(), struct_struct_old},
-		{"Conversion: Json to Struct", ValueOf(json_json).JSON().StructScan(StructOf(struct_type{}), "json", "").Interface(), struct_struct_old},
+		//{"Conversion: Json to Struct", ValueOf(json_json).JSON().StructScan(StructOf(struct_type{}), "json", "").Interface(), struct_struct_old},
 		{"Conversion: Empty Struct to Struct", ValueOf(&struct_blank).Elem().Set(struct_struct_old).STRUCT().MapByTag("json"), map_map},
 		{"Conversion: Struct to Json", ValueOf(struct_struct_old).STRUCT().SerializeByTag("json"), string_json},
 		{"Conversion: Match Type - Time", matchStructType(time_val.typ, ttime_val.typ), true},

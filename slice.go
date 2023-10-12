@@ -305,14 +305,24 @@ func (s SLICE) MapValuesMap(values SLICE) MAP {
 	return MapOf(s.MapValues(values))
 }
 
-// StructScan reads the values of SLICE into the provided Struct
-// in order of the Struct fields
-func (s SLICE) StructScan(S STRUCT) STRUCT {
-	for i := 0; i < s.Len() && i < S.Len(); i++ {
-		S.index(i).Set(s.Index(i))
+// Scan reads the values of SLICE into the provided destination pointer,
+// the number of elements in dest must be greater than or equal to
+// the number of elements in SLICE, otherwise Scan will panic
+func (s SLICE) Scan(dest any) {
+	d := ValueOf(dest).Elem()
+	for i := 0; i < s.Len() && i < d.Len(); i++ {
+		d.Index(i).Set(s.index(i))
 	}
-	return S
 }
+
+/* func (s SLICE) ScanList(dest any) {
+	d := SliceOf(dest)
+	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
+
+		d = d.Append(v.Interface())
+		return
+	}
+} */
 
 // JSON returns gotype SLICE as gotype JSON
 func (s SLICE) JSON() JSON {

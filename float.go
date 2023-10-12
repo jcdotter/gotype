@@ -63,7 +63,7 @@ func (v VALUE) Float64() float64 {
 		case String:
 			return (*STRING)(v.ptr).Float64()
 		case Bytes:
-			return STRING(*(*[]byte)(v.ptr)).Float64()
+			return (*BYTES)(v.ptr).Float64()
 		case Time:
 			return (*(*TIME)(v.ptr)).Float64()
 		}
@@ -100,15 +100,15 @@ func (f FLOAT) Encode() ENCODING {
 // Bytes returns gotype FLOAT as []byte
 func (f FLOAT) Bytes() []byte {
 	b := make([]byte, 8)
-	p := uintptr(unsafe.Pointer(&f))
-	b[7] = *(*uint8)(unsafe.Pointer(p))
-	b[6] = *(*uint8)(unsafe.Pointer(p + 1))
-	b[5] = *(*uint8)(unsafe.Pointer(p + 2))
-	b[4] = *(*uint8)(unsafe.Pointer(p + 3))
-	b[3] = *(*uint8)(unsafe.Pointer(p + 4))
-	b[2] = *(*uint8)(unsafe.Pointer(p + 5))
-	b[1] = *(*uint8)(unsafe.Pointer(p + 6))
-	b[0] = *(*uint8)(unsafe.Pointer(p + 7))
+	p := unsafe.Pointer(&f)
+	b[0] = *(*uint8)(offset(p, 0))
+	b[1] = *(*uint8)(offset(p, 1))
+	b[2] = *(*uint8)(offset(p, 2))
+	b[3] = *(*uint8)(offset(p, 3))
+	b[4] = *(*uint8)(offset(p, 4))
+	b[5] = *(*uint8)(offset(p, 5))
+	b[6] = *(*uint8)(offset(p, 6))
+	b[7] = *(*uint8)(offset(p, 7))
 	return b
 }
 
@@ -125,10 +125,7 @@ func (f FLOAT) STRING() STRING {
 // Bool returns gotype Float as a gotype Bool
 // false if 0, otherwise true
 func (f FLOAT) Bool() bool {
-	if f == 0 {
-		return false
-	}
-	return true
+	return f != 0
 }
 
 // BOOL returns gotype FLOAT as a gotype Bool

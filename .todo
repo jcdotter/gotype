@@ -1,13 +1,16 @@
 TODO:
     [ ] Testing:
-        [ ] Type conversion - robust
+        [√] Type conversion - robust
         [ ] Value Set 
-            [x] ...
+            [√] ...
             [ ] type mismatch
             [ ] embedded values
         [ ] Value New:
+            [√] started
             [ ] ...
             [ ] Deep New
         [ ] Encoding
         [ ] ...
     [ ] Add (VALUE).Init() for nil values
+    [ ] Add ULID to UUID
+    [ ] Add slice list scan

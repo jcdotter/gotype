@@ -159,11 +159,10 @@ func (j JSON) MAP() MAP {
 	return MapOf(j.Map())
 }
 
-// StructScan reads gotype JSON into the struct provided
-// if tag is empty, Field names will be used to read JSON keys into Struct
-func (j JSON) StructScan(s STRUCT, tag string, subtag string) STRUCT {
-	j.MAP().StructScan(s, tag, subtag)
-	return s
+// Scan reads gotype JSON into the struct provided
+// if tag is empty, Field names will be used to read JSON keys into dest Struct
+func (j JSON) Scan(dest any, tags ...string) {
+	j.MAP().Scan(dest, tags...)
 }
 
 // Empty evaluates whether the JSON holds any values

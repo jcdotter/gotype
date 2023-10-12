@@ -340,6 +340,7 @@ func (s STRUCT) FieldNames() []string {
 
 // FieldIndex returns an index of field names in the Struct to Fields
 func (s *STRUCT) FieldIndex() (index map[string]FIELD) {
+	index = map[string]FIELD{}
 	s.ForFields(true, func(i int, f FIELD) (brake bool) {
 		index[f.name] = f
 		return
@@ -431,32 +432,38 @@ func (s STRUCT) MapFormatted(format StrFormat) (m map[string]any) {
 	return
 }
 
-// ScanSlice reads the values of SLICE into the Struct
-// in order of the Struct fields
-func (s STRUCT) ScanSlice(S SLICE) {
-	S.StructScan(s)
-}
-
-// ScanMap reads the values of Map into the Struct
-// by mapping the keys to field names
-func (s STRUCT) ScanMap(m MAP) {
-	m.StructScan(s, "", "")
-}
-
-// ScanMap reads the values of Map into the Struct
-// by mapping the keys to matching field tag values
-func (s STRUCT) ScanMapByTag(m MAP, tag string, subtag string) {
-	m.StructScan(s, tag, subtag)
-}
-
-// ScanStruct reads the values of STRUCT into the provided Struct ns
-// by maping the field names to  matching field tag values
-func (s STRUCT) ScanToStruct(ns STRUCT) {
-	nsi := ns.FieldIndex()
-	s.ForFields(false, func(i int, f FIELD) (brake bool) {
-		if nf, found := nsi[f.name_.name()]; found {
-			nf.Set(f.VALUE())
-		}
-		return
-	})
+// Scan reads the values of STRUCT into the provided Struct pointer dest
+// by mapping the field names (or field tags) to those of the dest Struct
+func (s STRUCT) Scan(dest any, tags ...string) {
+	d := ValueOf(dest).Elem().STRUCT()
+	var dest_idx map[string]FIELD
+	switch len(tags) {
+	case 0:
+		dest_idx = d.FieldIndex()
+		s.ForFields(false, func(i int, f FIELD) (brake bool) {
+			if dest_fld, found := dest_idx[f.name_.name()]; found {
+				dest_fld.Set(f.VALUE())
+			}
+			return
+		})
+	case 1:
+		tag := tags[0]
+		dest_idx = d.TagIndex(tag)
+		s.ForFields(true, func(i int, f FIELD) (brake bool) {
+			if dest_fld, found := dest_idx[f.Tag(tag)]; found {
+				dest_fld.Set(f.VALUE())
+			}
+			return
+		})
+	default:
+		tag := tags[0]
+		subtag := tags[1]
+		dest_idx = d.SubTagIndex(tag, subtag)
+		s.ForFields(true, func(i int, f FIELD) (brake bool) {
+			if dest_fld, found := dest_idx[f.SubTag(tag, subtag)]; found {
+				dest_fld.Set(f.VALUE())
+			}
+			return
+		})
+	}
 }

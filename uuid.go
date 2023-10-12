@@ -27,7 +27,7 @@ func (v VALUE) UUID() UUID {
 	case String:
 		return (*STRING)(v.ptr).UUID()
 	case Bytes:
-		return STRING(*(*[]byte)(v.ptr)).UUID()
+		return (*BYTES)(v.ptr).UUID()
 	case Uuid:
 		return *(*UUID)(v.ptr)
 	case Pointer:

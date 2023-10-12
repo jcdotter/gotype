@@ -63,7 +63,7 @@ func (v VALUE) Int() int {
 		case String:
 			return (*STRING)(v.ptr).Int()
 		case Bytes:
-			return STRING(*(*[]byte)(v.ptr)).Int()
+			return (*BYTES)(v.ptr).Int()
 		case Time:
 			return (*(*TIME)(v.ptr)).Int()
 		}
@@ -100,15 +100,15 @@ func (i INT) Encode() ENCODING {
 // Bytes returns gotype INT as []byte
 func (i INT) Bytes() []byte {
 	b := make([]byte, 8)
-	p := uintptr(unsafe.Pointer(&i))
-	b[7] = *(*uint8)(unsafe.Pointer(p))
-	b[6] = *(*uint8)(unsafe.Pointer(p + 1))
-	b[5] = *(*uint8)(unsafe.Pointer(p + 2))
-	b[4] = *(*uint8)(unsafe.Pointer(p + 3))
-	b[3] = *(*uint8)(unsafe.Pointer(p + 4))
-	b[2] = *(*uint8)(unsafe.Pointer(p + 5))
-	b[1] = *(*uint8)(unsafe.Pointer(p + 6))
-	b[0] = *(*uint8)(unsafe.Pointer(p + 7))
+	p := unsafe.Pointer(&i)
+	b[0] = *(*uint8)(offset(p, 0))
+	b[1] = *(*uint8)(offset(p, 1))
+	b[2] = *(*uint8)(offset(p, 2))
+	b[3] = *(*uint8)(offset(p, 3))
+	b[4] = *(*uint8)(offset(p, 4))
+	b[5] = *(*uint8)(offset(p, 5))
+	b[6] = *(*uint8)(offset(p, 6))
+	b[7] = *(*uint8)(offset(p, 7))
 	return b
 }
 
@@ -125,10 +125,7 @@ func (i INT) STRING() STRING {
 // Bool returns gotype INT as bool
 // false if 0, true if 1, otherwise panics
 func (i INT) Bool() bool {
-	if i == 0 {
-		return false
-	}
-	return true
+	return i != 0
 }
 
 // BOOL returns gotype INT as a gotype Bool

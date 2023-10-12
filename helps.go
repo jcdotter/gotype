@@ -55,6 +55,14 @@ func AbsInt(x int) int {
 	return x
 }
 
+func offset(p unsafe.Pointer, offset uintptr) unsafe.Pointer {
+	return unsafe.Pointer(uintptr(p) + offset)
+}
+
+func offseti(p unsafe.Pointer, offset int) unsafe.Pointer {
+	return unsafe.Pointer(uintptr(p) + uintptr(offset))
+}
+
 // ------------------------------------------------------------ /
 // GOLANG NOESCAPES
 // imported functions from standard golang library

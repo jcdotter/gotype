@@ -8,7 +8,6 @@ package gotype
 import (
 	b "bytes"
 	"encoding/gob"
-	"fmt"
 	"math"
 	"unsafe"
 )
@@ -63,10 +62,6 @@ type decodex struct {
 // String return serialized string of decoded value
 func (d decodex) String() string {
 	return d.v.String()
-}
-
-func (d decodex) gVal() string {
-	return fmt.Sprintf("%#v", d.v.Interface())
 }
 
 func (v VALUE) Encode() ENCODING {
@@ -155,9 +150,8 @@ func (v VALUE) EncodeNum() ENCODING {
 	l := v.typ.size + 1
 	b := make([]byte, l)
 	b[0] = v.typ.Kind().Byte()
-	u := uintptr(v.ptr)
 	for i := uintptr(0); i < l-1; i++ {
-		b[l-1-i] = *(*byte)(unsafe.Pointer(u + i))
+		b[i+1] = *(*byte)(offset(v.ptr, i))
 	}
 	return b
 }
@@ -341,9 +335,8 @@ func (e ENCODING) decodexNum() (d decodex) {
 	d.v = d.k.NewValue()
 	d.b = int(d.v.typ.size) + 1
 	e[1:].LenAtLeast(d.b - 1)
-	p := uintptr(d.v.ptr)
 	for i := 1; i < d.b; i++ {
-		*(*byte)(unsafe.Pointer(p + uintptr(d.b-1-i))) = e[i]
+		*(*byte)(offseti(d.v.ptr, i+1)) = e[i]
 	}
 	return
 }
@@ -507,38 +500,38 @@ func (e ENCODING) decodeLen(offset uintptr) (len int, bytes int) {
 }
 
 func lenBytes(l int) []byte {
-	p := uintptr(unsafe.Pointer(&l))
+	p := unsafe.Pointer(&l)
 	switch {
 	case l < math.MaxUint8:
 		return []byte{
 			Uint8.Byte(),
-			*(*byte)(unsafe.Pointer(p + 0)),
+			*(*byte)(offset(p, 0)),
 		}
 	case l < math.MaxUint16:
 		return []byte{
 			Uint16.Byte(),
-			*(*byte)(unsafe.Pointer(p + 0)),
-			*(*byte)(unsafe.Pointer(p + 1)),
+			*(*byte)(offset(p, 0)),
+			*(*byte)(offset(p, 1)),
 		}
 	case l < math.MaxUint32:
 		return []byte{
 			Uint32.Byte(),
-			*(*byte)(unsafe.Pointer(p + 0)),
-			*(*byte)(unsafe.Pointer(p + 1)),
-			*(*byte)(unsafe.Pointer(p + 2)),
-			*(*byte)(unsafe.Pointer(p + 3)),
+			*(*byte)(offset(p, 0)),
+			*(*byte)(offset(p, 1)),
+			*(*byte)(offset(p, 2)),
+			*(*byte)(offset(p, 3)),
 		}
 	default:
 		return []byte{
 			Uint.Byte(),
-			*(*byte)(unsafe.Pointer(p + 0)),
-			*(*byte)(unsafe.Pointer(p + 1)),
-			*(*byte)(unsafe.Pointer(p + 2)),
-			*(*byte)(unsafe.Pointer(p + 3)),
-			*(*byte)(unsafe.Pointer(p + 4)),
-			*(*byte)(unsafe.Pointer(p + 5)),
-			*(*byte)(unsafe.Pointer(p + 6)),
-			*(*byte)(unsafe.Pointer(p + 7)),
+			*(*byte)(offset(p, 0)),
+			*(*byte)(offset(p, 1)),
+			*(*byte)(offset(p, 2)),
+			*(*byte)(offset(p, 3)),
+			*(*byte)(offset(p, 4)),
+			*(*byte)(offset(p, 5)),
+			*(*byte)(offset(p, 6)),
+			*(*byte)(offset(p, 7)),
 		}
 	}
 }

@@ -210,13 +210,14 @@ func (a ARRAY) Serialize(ancestry ...ancestor) (s string) {
 	return "[" + s[1:] + "]"
 }
 
-// StructScan reads the values of ARRAY into the provided Struct
-// in order of the Struct fields
-func (a ARRAY) StructScan(s STRUCT) STRUCT {
-	for i := 0; i < a.Len() && i < s.Len(); i++ {
-		s.index(i).Set(a.index(i))
+// Scan reads the values of ARRAY into the provided destination pointer,
+// the number of elements in dest must be greater than or equal to
+// the number of elements in ARRAY, otherwise Scan will panic
+func (a ARRAY) Scan(dest any) {
+	d := ValueOf(dest).Elem()
+	for i := 0; i < a.Len() && i < d.Len(); i++ {
+		d.Index(i).Set(a.index(i))
 	}
-	return s
 }
 
 // JSON returns gotype ARRAY as gotype JSON
