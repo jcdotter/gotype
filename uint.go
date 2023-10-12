@@ -125,10 +125,7 @@ func (u UINT) STRING() STRING {
 // Bool returns gotype INT as bool
 // false if 0, otherwise true
 func (u UINT) Bool() bool {
-	if u == 0 {
-		return false
-	}
-	return true
+	return u != 0
 }
 
 // BOOL returns gotype INT as a gotype Bool

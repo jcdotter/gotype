@@ -36,10 +36,6 @@ func (v VALUE) Reflect() reflect.Value {
 	return *(*reflect.Value)(unsafe.Pointer(&v))
 }
 
-func (v VALUE) flg() flag {
-	return v.typ.flag()
-}
-
 // ------------------------------------------------------------ /
 // VALUE INITIALIZATION
 // generates new mem address for VALUE data type when VALUE is nil
@@ -297,13 +293,9 @@ func (v VALUE) setMatched(n VALUE) VALUE {
 	case Interface:
 		*(*any)(v.ptr) = *(*any)(n.ptr)
 	case Map: // hmap header size
-		**(**[48]byte)(v.ptr) = **(**[48]byte)(n.ptr)
+		*(*[48]byte)(v.Pointer()) = *(*[48]byte)(n.Pointer())
 	case Pointer:
-		if (*ptrType)(unsafe.Pointer(v.typ)).elem.Kind() == Map {
-			**(**unsafe.Pointer)(v.ptr) = **(**unsafe.Pointer)(n.ptr)
-		} else {
-			return v.Elem().setMatched(n.Elem())
-		}
+		v.Elem().setMatched(n.Elem())
 	case Slice: // slice header size
 		*(*[24]byte)(v.ptr) = *(*[24]byte)(n.ptr)
 	case String: // string header size
@@ -466,8 +458,7 @@ func (v VALUE) Serialize() string {
 	case Map:
 		return (MAP)(v).Serialize(ancestor{v.typ, v.Uintptr()})
 	case Pointer:
-		sval, _ := v.serialElem().serialSafe(ancestor{v.typ, v.Uintptr()})
-		return sval
+		return v.Elem().SetType().Serialize()
 	case Slice:
 		return (SLICE)(v).Serialize(ancestor{v.typ, v.Uintptr()})
 	case Struct:
@@ -492,7 +483,7 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	if k.IsBasic() {
 		return v.Serialize(), false
 	}
-	if (k == Map || k == Slice) && *(*unsafe.Pointer)(v.ptr) == nil {
+	if (k == Map || k == Slice) && v.Pointer() == nil {
 		return "null", false
 	}
 	uptr := v.Uintptr()
@@ -508,7 +499,7 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	case Map:
 		return (MAP)(v).Serialize(ancestry...), false
 	case Pointer:
-		return v.serialElem().serialSafe(ancestry...)
+		return v.Elem().SetType().serialSafe(ancestry...)
 	case Slice:
 		return (SLICE)(v).Serialize(ancestry...), false
 	case Struct:
@@ -516,16 +507,6 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	default:
 		return v.Serialize(), false
 	}
-}
-
-func (v VALUE) serialElem() VALUE {
-	if v.Kind() == Pointer {
-		v.typ = (*ptrType)(unsafe.Pointer(v.typ)).elem
-		if v.ptr != nil {
-			v.ptr = v.Pointer()
-		}
-	}
-	return v.SetType()
 }
 
 // ------------------------------------------------------------ /

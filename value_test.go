@@ -17,10 +17,12 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	s := ValueOf([]string{}).New().Interface().([]string)
-	fmt.Printf("%#v\n", s)
-	s = append(s, "")
-	fmt.Printf("%#v\n", s)
+	s := "test"
+	pm := map[string]*string{"0": &s, "1": &s}
+	MapOf(&pm).ForEach(func(i int, k string, v VALUE) (brake bool) {
+		fmt.Printf("%v: %v\n", k, v.Elem().Interface())
+		return
+	})
 }
 
 func TestValueOf(t *testing.T) {
@@ -144,12 +146,12 @@ func TestValueSerialize(t *testing.T) {
 		d  = string_struct{"s", "s"}
 		d1 = string_struct_single{"s"}
 
-		pa = [2]*string{&s, &s}
-		/* pl  = []*string{&s, &s}
+		pa  = [2]*string{&s, &s}
+		pl  = []*string{&s, &s}
 		pm  = map[string]*string{"0": &s, "1": &s}
 		pd  = string_ptr_struct{&s, &s}
 		pa1 = [1]*string{&s}
-		pd1 = string_ptr_struct_single{&s} */
+		pd1 = string_ptr_struct_single{&s}
 	)
 	gt.Equal(`"s"`, ValueOf(s).Serialize(), "string")
 	gt.Equal(`["s","s"]`, ValueOf(a).Serialize(), "array")
@@ -161,9 +163,59 @@ func TestValueSerialize(t *testing.T) {
 
 	gt.Equal(`"s"`, ValueOf(&s).Serialize(), "*string")
 	gt.Equal(`["s","s"]`, ValueOf(&pa).Serialize(), "*array")
-	/* gt.Equal(`["s","s"]`, ValueOf(&pl).Serialize(), "*slice")
+	gt.Equal(`["s","s"]`, ValueOf(&pl).Serialize(), "*slice")
 	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Serialize(), "*map")
 	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Serialize(), "*struct")
 	gt.Equal(`["s"]`, ValueOf(&pa1).Serialize(), "*array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Serialize(), "*struct(1)") */
+	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Serialize(), "*struct(1)")
+}
+
+func TestValueSet(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).Set(%s)"
+	vars := createTestVars()
+	var (
+		b  = false
+		i  = 2
+		s  = "updated"
+		a  = [2]string{"updated", "updated"}
+		l  = []string{"updated", "updated"}
+		m  = map[string]string{"0": "updated", "1": "updated"}
+		d  = string_struct{"updated", "updated"}
+		a1 = [1]string{"updated"}
+		d1 = string_struct_single{"updated"}
+	)
+
+	gt.Equal(b, ValueOf(vars["bool"]).Set(b).Interface(), "bool", "bool")
+	gt.Equal(i, ValueOf(vars["int"]).Set(i).Interface(), "int", "int")
+	gt.Equal(s, ValueOf(vars["string"]).Set(s).Interface(), "string", "string")
+	gt.Equal(a, ValueOf(vars["array"]).Set(a).Interface(), "array", "array")
+	gt.Equal(l, ValueOf(vars["slice"]).Set(l).Interface(), "slice", "slice")
+	gt.Equal(m, ValueOf(vars["map"]).Set(m).Interface(), "map", "map")
+	gt.Equal(d, ValueOf(vars["struct"]).Set(d).Interface(), "struct", "struct")
+	gt.Equal(a1, ValueOf(vars["array_string_single"]).Set(a1).Interface(), "array(1)", "array(1)")
+	gt.Equal(d1, ValueOf(vars["struct_string_single"]).Set(d1).Interface(), "struct(1)", "struct(1)")
+
+	gt.Equal(b, ValueOf(vars["ptr_bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
+	gt.Equal(i, ValueOf(vars["ptr_int"]).Set(&i).Elem().Interface(), "*int", "*int")
+	gt.Equal(s, ValueOf(vars["ptr_string"]).Set(&s).Elem().Interface(), "*string", "*string")
+	gt.Equal(a, ValueOf(vars["ptr_array"]).Set(&a).Elem().Interface(), "*array", "*array")
+	gt.Equal(l, ValueOf(vars["ptr_slice"]).Set(&l).Elem().Interface(), "*slice", "*slice")
+	gt.Equal(m, ValueOf(vars["ptr_map"]).Set(&m).Elem().Interface(), "*map", "*map")
+	gt.Equal(d, ValueOf(vars["ptr_struct"]).Set(&d).Elem().Interface(), "*struct", "*struct")
+	gt.Equal(a1, ValueOf(vars["ptr_array_single"]).Set(&a1).Elem().Interface(), "*array(1)", "*array(1)")
+	gt.Equal(d1, ValueOf(vars["ptr_struct_single"]).Set(&d1).Elem().Interface(), "*struct(1)", "*struct(1)")
+
+	gt.Equal(b, ValueOf(vars["ptr_bool"]).Set(b).Elem().Interface(), "*bool", "bool")
+	gt.Equal(i, ValueOf(vars["ptr_int"]).Set(i).Elem().Interface(), "*int", "int")
+	gt.Equal(s, ValueOf(vars["ptr_string"]).Set(s).Elem().Interface(), "*string", "string")
+	gt.Equal(a, ValueOf(vars["ptr_array"]).Set(a).Elem().Interface(), "*array", "array")
+	gt.Equal(l, ValueOf(vars["ptr_slice"]).Set(l).Elem().Interface(), "*slice", "slice")
+	gt.Equal(m, ValueOf(vars["ptr_map"]).Set(m).Elem().Interface(), "*map", "map")
+	gt.Equal(d, ValueOf(vars["ptr_struct"]).Set(d).Elem().Interface(), "*struct", "struct")
+	gt.Equal(a1, ValueOf(vars["ptr_array_single"]).Set(a1).Elem().Interface(), "*array(1)", "array(1)")
+	gt.Equal(d1, ValueOf(vars["ptr_struct_single"]).Set(d1).Elem().Interface(), "*struct(1)", "struct(1)")
+
+	// set mismatched types
+
 }

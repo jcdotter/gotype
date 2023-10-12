@@ -79,11 +79,11 @@ func (s SLICE) Index(i int) VALUE {
 
 func (s SLICE) index(i int) VALUE {
 	t := (*sliceType)(unsafe.Pointer(s.typ))
-	v := VALUE{t.elem, unsafe.Pointer(uintptr((*sliceHeader)(s.ptr).Data) + uintptr(i)*t.elem.size), t.elem.flag()}.SetType()
-	if v.Kind() == Pointer && *(*unsafe.Pointer)(v.ptr) != nil {
-		//v.ptr = *(*unsafe.Pointer)(v.ptr)
-	}
-	return v
+	return VALUE{
+		t.elem,
+		unsafe.Pointer(uintptr((*sliceHeader)(s.ptr).Data) + uintptr(i)*t.elem.size),
+		flagAddr | flagIndir | flag(t.elem.Kind()),
+	}.SetType()
 }
 
 // ForEach executes function f on each item in SLICE,

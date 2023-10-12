@@ -194,7 +194,7 @@ type mapType struct {
 }
 
 type bmap struct {
-	tophash [bucketCnt]uint8
+	_ [bucketCnt]uint8
 }
 
 const (

@@ -81,7 +81,7 @@ func (a ARRAY) index(i int) VALUE {
 	return VALUE{
 		t.elem,
 		unsafe.Pointer(uintptr(a.ptr) + uintptr(i)*t.elem.size),
-		t.elem.flag(),
+		a.flag&(flagIndir|flagAddr) | flag(t.elem.Kind()),
 	}.SetType()
 }
 
@@ -164,8 +164,8 @@ func (a ARRAY) SLICE() SLICE {
 	at := (*arrayType)(unsafe.Pointer(a.typ))
 	a.typ = reflectType(reflect.SliceOf(toType(at.elem)))
 	l := int(at.len)
-	s := reflect.SliceHeader{
-		Data: uintptr(a.ptr),
+	s := sliceHeader{
+		Data: a.ptr,
 		Len:  l,
 		Cap:  l,
 	}

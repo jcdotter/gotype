@@ -150,7 +150,11 @@ func (m MAP) ForEach(f func(i int, k string, v VALUE) (brake bool)) {
 			if *(*byte)(unsafe.Pointer(up + 8)) == 0 { // key empty - next bucket
 				break
 			}
-			v := VALUE{t.elem, unsafe.Pointer(b + voff + uintptr(k)*valuesize), m.flag}.SetType()
+			v := VALUE{
+				t.elem,
+				unsafe.Pointer(b + voff + uintptr(k)*valuesize),
+				m.flag&(flagIndir|flagAddr) | flag(t.elem.Kind()),
+			}.SetType()
 			if v.Kind() == Pointer {
 				//v.ptr = *(*unsafe.Pointer)(v.ptr)
 			}
