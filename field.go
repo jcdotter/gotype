@@ -10,11 +10,11 @@ import "unsafe"
 type FIELD struct {
 	typ    *rtype
 	ptr    unsafe.Pointer
+	f      flag
 	name_  name
 	name   string
 	rawtag string
 	index  int
-	vis    bool
 }
 
 // Interface returns the Field value as interface{}
@@ -86,6 +86,13 @@ func (f FIELD) SubTag(tag string, subTag string) string {
 func (f FIELD) Set(a any) FIELD {
 	f.ptr = f.VALUE().Set(a).ptr
 	return f
+}
+
+func (f FIELD) Visible() bool {
+	if c := f.name[0]; c > 64 {
+		return c < 91
+	}
+	return false
 }
 
 func parseTags(rawtag string, q byte) map[string]string {

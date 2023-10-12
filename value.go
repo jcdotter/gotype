@@ -25,10 +25,10 @@ type VALUE struct {
 
 func ValueOf(a any) VALUE {
 	v := reflect.ValueOf(a)
-	return RefValue(v)
+	return FromReflect(v)
 }
 
-func RefValue(v reflect.Value) VALUE {
+func FromReflect(v reflect.Value) VALUE {
 	return *(*VALUE)(unsafe.Pointer(&v))
 }
 
@@ -48,15 +48,7 @@ func (v VALUE) flg() flag {
 // SetType sets the actual data type of interface VALUE
 func (v VALUE) SetType() VALUE {
 	if v.Kind() == Interface {
-		v := (*VALUE)(v.ptr)
-		if v.typ != nil && v.typ.kind != 0 {
-			switch v.Kind() {
-			case Pointer, Map:
-				return VALUE{v.typ, unsafe.Pointer(&v.ptr), v.flg()}
-			default:
-				return *v
-			}
-		}
+		return v.Elem()
 	}
 	return v
 }
@@ -70,8 +62,6 @@ func (v VALUE) New(init ...bool) VALUE {
 	return v.typ.New()
 }
 
-// add init func
-
 // NewDeep returns a new empty value of VALUE type
 // with matching number of elements and no nil spaces
 func (v VALUE) NewDeep() VALUE {
@@ -80,7 +70,6 @@ func (v VALUE) NewDeep() VALUE {
 	switch v.Kind() {
 	case Array:
 		(ARRAY)(v).ForEach(func(i int, k string, v VALUE) (brake bool) {
-			//fmt.Println(v.NewDeep().Serialize())
 			(ARRAY)(n).index(i).Set(v.NewDeep())
 			return
 		})
@@ -163,7 +152,7 @@ func (v VALUE) Len() int {
 
 // Elem returns the underlying value of a pointer
 func (v VALUE) Elem() VALUE {
-	return RefValue(v.Reflect().Elem())
+	return FromReflect(v.Reflect().Elem())
 }
 
 // ElemDeep cascades a series of pointers to return the underlying VALUE
@@ -288,12 +277,7 @@ func (v VALUE) Set(a any) VALUE {
 	case v.typ == n.typ:
 		return v.setMatched(n)
 	case v.Kind() == Pointer && v.typ.elem() == n.typ:
-		if (*ptrType)(unsafe.Pointer(v.typ)).elem.Kind() == Map {
-			**(**unsafe.Pointer)(v.ptr) = *(*unsafe.Pointer)(n.ptr)
-		} else {
-			//*(*unsafe.Pointer)(v.ptr) = n.ptr
-			v.Elem().setMatched(n)
-		}
+		v.Elem().setMatched(n)
 		return v
 	default:
 		return v.setUnmatched(n)
@@ -303,7 +287,6 @@ func (v VALUE) Set(a any) VALUE {
 func (v VALUE) setMatched(n VALUE) VALUE {
 	switch v.Kind() {
 	case Bool, Int8, Uint8:
-		//fmt.Println(*(*[1]byte)(v.ptr), *(*[1]byte)(n.ptr))
 		*(*[1]byte)(v.ptr) = *(*[1]byte)(n.ptr)
 	case Int16, Uint16:
 		*(*[2]byte)(v.ptr) = *(*[2]byte)(n.ptr)
@@ -319,7 +302,6 @@ func (v VALUE) setMatched(n VALUE) VALUE {
 		if (*ptrType)(unsafe.Pointer(v.typ)).elem.Kind() == Map {
 			**(**unsafe.Pointer)(v.ptr) = **(**unsafe.Pointer)(n.ptr)
 		} else {
-			//*(*unsafe.Pointer)(v.ptr) = *(*unsafe.Pointer)(n.ptr)
 			return v.Elem().setMatched(n.Elem())
 		}
 	case Slice: // slice header size
@@ -369,11 +351,6 @@ func (v VALUE) setUnmatched(n VALUE) VALUE {
 		} else {
 			v.setUnmatched(n)
 		}
-		/* pt := v.typ.elem().Kind()
-		if pt != Pointer && n.Kind() != Pointer {
-			n := n.retype(pt)
-			v.elem().setMatched(*(*VALUE)(unsafe.Pointer(&n)))
-		} */
 	case Interface:
 		*(*any)(v.ptr) = n.Interface()
 	case String:
@@ -489,7 +466,8 @@ func (v VALUE) Serialize() string {
 	case Map:
 		return (MAP)(v).Serialize(ancestor{v.typ, v.Uintptr()})
 	case Pointer:
-		return v.serialElem().serialSafe(ancestor{v.typ, v.Uintptr()})
+		sval, _ := v.serialElem().serialSafe(ancestor{v.typ, v.Uintptr()})
+		return sval
 	case Slice:
 		return (SLICE)(v).Serialize(ancestor{v.typ, v.Uintptr()})
 	case Struct:
@@ -506,37 +484,37 @@ type ancestor struct {
 	pointer uintptr
 }
 
-func (v VALUE) serialSafe(ancestry ...ancestor) string {
+func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	if v.ptr == nil {
-		return "null"
+		return "null", false
 	}
 	k := v.KIND()
 	if k.IsBasic() {
-		return v.Serialize()
+		return v.Serialize(), false
 	}
 	if (k == Map || k == Slice) && *(*unsafe.Pointer)(v.ptr) == nil {
-		return "null"
+		return "null", false
 	}
 	uptr := v.Uintptr()
 	for _, a := range ancestry {
 		if uptr == a.pointer && v.typ == a.typ {
-			return `"*recursive"`
+			return "", true
 		}
 	}
 	ancestry = append(ancestry, ancestor{v.typ, uptr})
 	switch k {
 	case Array:
-		return (ARRAY)(v).Serialize(ancestry...)
+		return (ARRAY)(v).Serialize(ancestry...), false
 	case Map:
-		return (MAP)(v).Serialize(ancestry...)
+		return (MAP)(v).Serialize(ancestry...), false
 	case Pointer:
 		return v.serialElem().serialSafe(ancestry...)
 	case Slice:
-		return (SLICE)(v).Serialize(ancestry...)
+		return (SLICE)(v).Serialize(ancestry...), false
 	case Struct:
-		return (STRUCT)(v).Serialize(ancestry...)
+		return (STRUCT)(v).Serialize(ancestry...), false
 	default:
-		return v.Serialize()
+		return v.Serialize(), false
 	}
 }
 
@@ -544,7 +522,7 @@ func (v VALUE) serialElem() VALUE {
 	if v.Kind() == Pointer {
 		v.typ = (*ptrType)(unsafe.Pointer(v.typ)).elem
 		if v.ptr != nil {
-			v.ptr = *(*unsafe.Pointer)(v.ptr)
+			v.ptr = v.Pointer()
 		}
 	}
 	return v.SetType()

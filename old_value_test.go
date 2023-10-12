@@ -77,8 +77,8 @@ var (
 )
 
 func TestAll(t *testing.T) {
-	TestAddrs(t)
-	TestEmptyAddrs(t)
+	//TestAddrs(t)
+	//TestEmptyAddrs(t)
 	TestValidations(t)
 	TestSerialValidations(t)
 	TestMapValidations(t)

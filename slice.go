@@ -196,7 +196,10 @@ func (s SLICE) Serialize(ancestry ...ancestor) (S string) {
 		return "[]"
 	}
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		S += "," + v.serialSafe(ancestry...)
+		sval, recursive := v.serialSafe(ancestry...)
+		if !recursive {
+			S += "," + sval
+		}
 		return
 	})
 	return "[" + S[1:] + "]"

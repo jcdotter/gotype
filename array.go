@@ -78,10 +78,11 @@ func (a ARRAY) Index(i int) VALUE {
 
 func (a ARRAY) index(i int) VALUE {
 	t := (*arrayType)(unsafe.Pointer(a.typ))
-	if k := t.elem.Kind(); t.len == 1 && (k == Map /* || k == Pointer */) {
-		//return VALUE{t.elem, unsafe.Pointer(&a.ptr)}
-	}
-	return VALUE{t.elem, unsafe.Pointer(uintptr(a.ptr) + uintptr(i)*t.elem.size), t.elem.flag()}.SetType()
+	return VALUE{
+		t.elem,
+		unsafe.Pointer(uintptr(a.ptr) + uintptr(i)*t.elem.size),
+		t.elem.flag(),
+	}.SetType()
 }
 
 // ForEach executes function f on each item in ARRAY,
@@ -119,9 +120,6 @@ func (a ARRAY) Interface() any {
 	var i any
 	iface := (*VALUE)(unsafe.Pointer(&i))
 	iface.typ, iface.ptr = a.typ, a.ptr
-	if a.Len() == 1 && (*arrayType)(unsafe.Pointer(a.typ)).elem.Kind() == Map {
-		//iface.ptr = unsafe.Pointer(&a.ptr) //*(*unsafe.Pointer)(a.ptr)
-	}
 	return i
 }
 
@@ -203,7 +201,10 @@ func (a ARRAY) Serialize(ancestry ...ancestor) (s string) {
 		return "[]"
 	}
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		s += "," + v.serialSafe(ancestry...)
+		sval, recursive := v.serialSafe(ancestry...)
+		if !recursive {
+			s += "," + sval
+		}
 		return
 	})
 	return "[" + s[1:] + "]"

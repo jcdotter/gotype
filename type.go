@@ -20,7 +20,10 @@ import (
 const (
 	kindMask             = (1 << 5) - 1
 	KindDirectIface      = 1 << 5
+	flagStickyRO    flag = 1 << 5
+	flagEmbedRO     flag = 1 << 6
 	flagIndir       flag = 1 << 7
+	flagAddr        flag = 1 << 8
 )
 
 var (
@@ -75,7 +78,7 @@ func (r *rtype) New() VALUE {
 		if r.Kind() != Pointer {
 			n = n.Elem()
 		}
-		return RefValue(n)
+		return FromReflect(n)
 	}
 	panic("call to New on nil type")
 }

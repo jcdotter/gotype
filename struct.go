@@ -72,11 +72,11 @@ func (s STRUCT) Index(i int) VALUE {
 func (s STRUCT) index(i int) VALUE {
 	fs := (*structType)(unsafe.Pointer(s.typ)).fields
 	f := fs[i]
-	if k := f.typ.Kind(); len(fs) == 1 && (k == Map || k == Pointer) {
-		//return VALUE{f.typ, unsafe.Pointer(&s.ptr)}
-	}
-	v := VALUE{f.typ, unsafe.Pointer(uintptr(s.ptr) + f.offset), f.typ.flag()}.SetType()
-	return v
+	return VALUE{
+		f.typ,
+		unsafe.Pointer(uintptr(s.ptr) + f.offset),
+		s.flag&(flagStickyRO|flagIndir|flagAddr) | flag(f.typ.Kind()),
+	}.SetType()
 }
 
 // Index returns FIELD with name n of STRUCT
@@ -85,9 +85,6 @@ func (s STRUCT) Field(n string) (r FIELD) {
 		if f.name = f.name_.name(); n == f.name {
 			r = f
 			r.rawtag = r.name_.tag()
-			if c := r.name[0]; c > 64 {
-				r.vis = c < 91
-			}
 			brake = true
 		}
 		return
@@ -106,9 +103,6 @@ func (s STRUCT) Tag(t string, v string) (r FIELD) {
 		if tv != "" && tv == v {
 			r = f
 			r.name = r.name_.name()
-			if c := r.name[0]; c > 64 {
-				r.vis = c < 91
-			}
 			brake = true
 		}
 		return
@@ -122,20 +116,12 @@ func (s STRUCT) Tag(t string, v string) (r FIELD) {
 // ForEach executes function f on each item in STRUCT,
 // note: f is the field name
 func (s STRUCT) ForEach(f func(i int, f string, v VALUE) (brake bool)) {
-	fs := (*structType)(unsafe.Pointer(s.typ)).fields
-	if len(fs) == 1 {
-		/* fl := fs[0]
-		var v VALUE
-		if k := fl.typ.Kind(); len(fs) == 1 && (k == Map || k == Pointer) {
-			v = VALUE{fl.typ, unsafe.Pointer(&s.ptr)}
-		} else {
-			v = VALUE{fl.typ, unsafe.Pointer(uintptr(s.ptr) + fl.offset)}.SetType()
-		}
-		f(0, fl.name.name(), v)
-		return */
-	}
-	for i, fld := range fs {
-		v := VALUE{fld.typ, unsafe.Pointer(uintptr(s.ptr) + fld.offset), fld.typ.flag()}.SetType()
+	for i, fld := range (*structType)(unsafe.Pointer(s.typ)).fields {
+		v := VALUE{
+			fld.typ,
+			unsafe.Pointer(uintptr(s.ptr) + fld.offset),
+			s.flag&(flagStickyRO|flagIndir|flagAddr) | flag(fld.typ.Kind()),
+		}.SetType()
 		if f(i, fld.name.name(), v) {
 			break
 		}
@@ -145,31 +131,16 @@ func (s STRUCT) ForEach(f func(i int, f string, v VALUE) (brake bool)) {
 // ForFields executes function f on each field in STRUCT;
 // note: f is the struct field; tag and name are populated when inclDetail is true
 func (s STRUCT) ForFields(inclDetail bool, f func(i int, f FIELD) (brake bool)) {
-	fs := (*structType)(unsafe.Pointer(s.typ)).fields
-	if len(fs) == 1 {
-		/* fl := fs[0]
-		var fo FIELD
-		if k := fl.typ.Kind(); len(fs) == 1 && (k == Map || k == Pointer) {
-			fo = FIELD{typ: fl.typ, ptr: unsafe.Pointer(&s.ptr), name_: fl.name, index: 0}
-		} else {
-			fo = FIELD{typ: fl.typ, ptr: s.ptr, name_: fl.name, index: 0}
+	for i, fld := range (*structType)(unsafe.Pointer(s.typ)).fields {
+		fo := FIELD{
+			typ:   fld.typ,
+			ptr:   unsafe.Pointer(uintptr(s.ptr) + fld.offset),
+			f:     s.flag&(flagStickyRO|flagIndir|flagAddr) | flag(fld.typ.Kind()),
+			name_: fld.name,
+			index: i,
 		}
 		if inclDetail {
 			fo.name, fo.rawtag = fo.name_.name(), fo.name_.tag()
-			if c := fo.name[0]; c > 64 {
-				fo.vis = c < 91
-			}
-		}
-		f(0, fo)
-		return */
-	}
-	for i, fld := range fs {
-		fo := FIELD{typ: fld.typ, ptr: unsafe.Pointer(uintptr(s.ptr) + fld.offset), name_: fld.name, index: i}
-		if inclDetail {
-			fo.name, fo.rawtag = fo.name_.name(), fo.name_.tag()
-			if c := fo.name[0]; c > 64 {
-				fo.vis = c < 91
-			}
 		}
 		if f(i, fo) {
 			break
@@ -202,9 +173,6 @@ func (s STRUCT) Interface() any {
 	var i any
 	iface := (*VALUE)(unsafe.Pointer(&i))
 	iface.typ, iface.ptr = s.typ, s.ptr
-	if s.Len() == 1 && (*structType)(unsafe.Pointer(s.typ)).fields[0].typ.Kind() == Map {
-		//iface.ptr = *(*unsafe.Pointer)(s.ptr)
-	}
 	return i
 }
 
@@ -279,7 +247,10 @@ func (s STRUCT) Serialize(ancestry ...ancestor) (S string) {
 		return "{}"
 	}
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		S += `,"` + k + `":` + v.serialSafe(ancestry...)
+		sval, recursive := v.serialSafe(ancestry...)
+		if !recursive {
+			S += `,"` + k + `":` + sval
+		}
 		return
 	})
 	return "{" + S[1:] + "}"
@@ -294,7 +265,10 @@ func (s STRUCT) SerializeByTag(tag string, ancestry ...ancestor) (S string) {
 		return "{}"
 	}
 	s.ForFields(false, func(i int, f FIELD) (brake bool) {
-		S += `,"` + f.Tag(tag) + `":` + f.VALUE().serialSafe(ancestry...)
+		sval, recursive := f.VALUE().serialSafe(ancestry...)
+		if !recursive {
+			S += `,"` + f.Tag(tag) + `":` + sval
+		}
 		return
 	})
 	return "{" + S[1:] + "}"

@@ -1,0 +1,8 @@
+TODO:
+    [ ] Add (VALUE).Init() for nil values
+    [ ] 
+
+In Progress:
+    Error on testing serialization for embedded pointers
+    checking on array 
+    working in index for array to make sure its fetching pointers correctly

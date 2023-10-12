@@ -66,7 +66,7 @@ func (v VALUE) MAP() MAP {
 
 // Len returns the number of items in MAP
 func (m MAP) Len() int {
-	if p := *(*unsafe.Pointer)(m.ptr); p != nil {
+	if p := m.ptr; p != nil {
 		return *(*int)(p)
 	}
 	return 0
@@ -74,7 +74,7 @@ func (m MAP) Len() int {
 
 // Keys returns gotype MAP keys as []string
 func (m MAP) Keys() []string {
-	p := *(*unsafe.Pointer)(m.ptr)
+	p := (VALUE)(m).Pointer()
 	l := *(*int)(p)
 	d := mallocgc(uintptr(l*16), getrtype(byte(0)), false)
 	keys := *(*[]string)(unsafe.Pointer(&sliceHeader{Data: d, Len: l, Cap: l}))
@@ -117,17 +117,16 @@ func (m MAP) Keys() []string {
 // Index returns the value found at key k of Map
 // returns nil pointer if key does not exist
 func (m MAP) Index(k string) VALUE {
-	v := VALUE{(*mapType)(unsafe.Pointer(m.typ)).elem, mapaccess_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k), m.flag}.SetType()
-	if v.Kind() == Pointer && *(*unsafe.Pointer)(v.ptr) != nil {
-		//v.ptr = *(*unsafe.Pointer)(v.ptr)
-	}
-	return v
+	t := (*mapType)(unsafe.Pointer(m.typ)).elem
+	p := mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k)
+	f := t.flag()
+	return VALUE{t, p, f}.SetType()
 }
 
 // ForEach executes function f on each item in ARRAY,
 // note: i is not a fixed value and may change across items
 func (m MAP) ForEach(f func(i int, k string, v VALUE) (brake bool)) {
-	p := *(*unsafe.Pointer)(m.ptr)
+	p := (VALUE)(m).Pointer()
 	if p == nil {
 		return
 	}
@@ -188,27 +187,27 @@ func (m MAP) Set(k string, v any) MAP {
 	val := ValueOf(v)
 	switch {
 	case typ == val.typ:
-		mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, val.ptr)
+		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, val.ptr)
 	case typ.elem() == val.typ:
-		mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, unsafe.Pointer(&val.ptr))
+		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&val.ptr))
 	case typ.Kind() == Interface:
 		if _, isVal := v.(VALUE); isVal {
 			v = val.Interface()
 		}
-		mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, unsafe.Pointer(&v))
+		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&v))
 	case knd == String:
 		p := ValueOf(val.String()).ptr
 		if typ.Kind() == Pointer {
-			mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, unsafe.Pointer(&p))
+			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
 		} else {
-			mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, p)
+			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
 		}
 	case knd.IsBasic() && val.typ.Kind().IsBasic():
 		p := ValueOf(val.retype(knd)).ptr
 		if typ.Kind() == Pointer {
-			mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, unsafe.Pointer(&p))
+			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
 		} else {
-			mapassign_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), k, p)
+			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
 		}
 	default:
 		panic("cannot set mismatched data types")
@@ -218,7 +217,7 @@ func (m MAP) Set(k string, v any) MAP {
 
 // Delete removes key from MAP
 func (m MAP) Delete(key string) MAP {
-	mapdelete_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), key)
+	mapdelete_faststr(m.typ, (VALUE)(m).Pointer(), key)
 	return m
 }
 
@@ -231,7 +230,7 @@ func (m MAP) Delete(key string) MAP {
 
 // KeyPtr returns an unsafe pointer to the value at index 'key'
 func (m MAP) KeyPtr(key string) unsafe.Pointer {
-	return mapaccess_faststr(m.typ, *(*unsafe.Pointer)(m.ptr), key)
+	return mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), key)
 }
 
 // Kind returns the kind of the map elements
@@ -253,7 +252,7 @@ func (m MAP) Native() any {
 func (m MAP) Interface() any {
 	var i any
 	iface := (*VALUE)(unsafe.Pointer(&i))
-	iface.typ, iface.ptr = m.typ, *(*unsafe.Pointer)(m.ptr)
+	iface.typ, iface.ptr = m.typ, (VALUE)(m).Pointer()
 	return i
 }
 
@@ -321,14 +320,17 @@ func (m MAP) String() string {
 
 // Serialize returns gotype MAP as a serialized string
 func (m MAP) Serialize(ancestry ...ancestor) (s string) {
-	if m.ptr == nil || *(*unsafe.Pointer)(m.ptr) == nil {
+	if (VALUE)(m).Pointer() == nil {
 		return "null"
 	}
 	if m.Len() == 0 {
 		return "{}"
 	}
 	m.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		s += `,"` + k + `":` + v.serialSafe(ancestry...)
+		sval, recursive := v.serialSafe(ancestry...)
+		if !recursive {
+			s += `,"` + k + `":` + sval
+		}
 		return
 	})
 	return "{" + s[1:] + "}"
