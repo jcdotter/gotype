@@ -135,14 +135,12 @@ type any_struct struct {
 	V2 any
 }
 
-func createTestVars() map[string]any {
-	var (
-		b = false
-		i = 0
-		s = "false"
-	)
+func getTestVars() map[string]any {
+	return createTestVars(false, 0, "false")
+}
 
-	return map[string]any{
+func createTestVars(b bool, i int, s string, item ...string) map[string]any {
+	v := map[string]any{
 		"bool":   b,
 		"int":    i,
 		"string": s,
@@ -302,4 +300,12 @@ func createTestVars() map[string]any {
 		"struct_ptr_any":    any_struct{&s, &s},
 	}
 
+	if len(item) > 0 {
+		r := map[string]any{}
+		for _, v := range item {
+			r[v] = v
+		}
+		return r
+	}
+	return v
 }

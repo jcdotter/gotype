@@ -74,10 +74,10 @@ func reflectType(t reflect.Type) *rtype {
 // New returns a new indirect Value of the Type
 func (r *rtype) New() VALUE {
 	if r != nil {
-		n := reflect.New(toType(r))
-		if r.Kind() != Pointer {
-			n = n.Elem()
-		}
+		n := reflect.New(toType(r.elem()))
+		/* //if r.Kind() != Pointer {
+		n = n.Elem()
+		//} */
 		return FromReflect(n)
 	}
 	panic("call to New on nil type")

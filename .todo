@@ -1,16 +1,19 @@
 TODO:
     [ ] Testing:
         [√] Type conversion - robust
-        [ ] Value Set 
+        [√] Value Set 
             [√] ...
-            [ ] type mismatch
-            [ ] embedded values
+            [√] type mismatch
+            [√] embedded values
         [ ] Value New:
             [√] started
             [ ] ...
             [ ] Deep New
         [ ] Encoding
         [ ] ...
+    [ ] fix deserializer (quotes still embedded)
     [ ] Add (VALUE).Init() for nil values
     [ ] Add ULID to UUID
     [ ] Add slice list scan
+    [ ] Optimize ValueOf, VALUE.Elem(), VALUE.SetType()
+        move away from reflect pkg reliance

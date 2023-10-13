@@ -2,7 +2,6 @@ package gotype
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -10,7 +9,8 @@ import (
 )
 
 var config = &test.Config{
-	PrintTest:   true,
+	//PrintTest:   true,
+	PrintFail:   true,
 	PrintTrace:  true,
 	PrintDetail: true,
 	FailFatal:   true,
@@ -18,32 +18,46 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	for n, v := range createTestVars() {
-		if n[:3] == "map" {
-			fmt.Println(ValueOf(v).Index(0))
-		}
-	}
+	//m := [][]string{{"0", "1"}, {"0", "1"}}
+	//m := [2][2]string{{"0", "1"}, {"0", "1"}}
+	//m := [1][1]string{{"0"}}
+	//m := struct_struct{string_struct{"1", "1"}, string_struct{"1", "1"}}
+
+	/* m := map[string]map[string]string{
+		"0": {"0": "0", "1": "1"},
+		"1": {"0": "0", "1": "1"},
+	} */
+
+	s := "1"
+	//m := &s
+	//m := string_ptr_struct{&s, &s}
+	m := [2]*string{&s, &s}
+	//m := [2]string{s, s}
+
+	n := ValueOf(m).New()
+	//n := ValueOf(m).NewDeep()
+	fmt.Printf("%#v: %s\n", n.Interface(), n)
 }
-func new_(a any) any {
-	n := a
-	return n
+
+func TestAll(t *testing.T) {
+	TestValueOf(t)
+	TestValueNew(t)
+	TestValueLen(t)
+	TestValueIndex(t)
+	TestValueSerialize(t)
+	TestValueSerializePrint(t)
+	TestValueSetTyped(t)
+	TestValueSetPtr(t)
+	TestValueSetUntyped(t)
+	TestValueConversion(t)
+
 }
 
 func TestValueOf(t *testing.T) {
 	gt := test.New(t, config)
 	gt.Msg = "Testing ValueOf(%s).Interface()"
-	for n, v := range createTestVars() {
+	for n, v := range getTestVars() {
 		gt.Equal(ValueOf(v).Interface(), v, n)
-	}
-}
-
-func TestZero(t *testing.T) {
-	gt := test.New(t, config)
-	gt.Msg = "Testing Zero(%s)"
-	for n, v := range createTestVars() {
-		r := reflect.ValueOf(v)
-		r.SetZero()
-		fmt.Printf("%v: %v\n", n, r.Elem())
 	}
 }
 
@@ -62,25 +76,20 @@ func TestValueNew(t *testing.T) {
 		d1 = string_struct_single{"s"}
 	)
 
-	gt.Equal(ValueOf(b).New().Interface(), false, "bool")
-	gt.Equal(ValueOf(i).New().Interface(), 0, "int")
-	gt.Equal(ValueOf(s).New().Interface(), "", "string")
-	gt.Equal(ValueOf(a).New().Interface(), [2]string{"", ""}, "array")
-	gt.Equal(ValueOf(l).New().Interface(), []string(nil), "slice")
-	gt.Equal(ValueOf(m).New().Interface(), map[string]string(nil), "map")
-	gt.Equal(ValueOf(d).New().Interface(), string_struct{}, "struct")
-	gt.Equal(ValueOf(a1).New().Interface(), [1]string{""}, "array(1)")
-	gt.Equal(ValueOf(d1).New().Interface(), string_struct_single{}, "struct(1)")
+	gt.Equal(false, ValueOf(b).New().Elem().Interface(), "bool")
+	gt.Equal(0, ValueOf(i).New().Elem().Interface(), "int")
+	gt.Equal("", ValueOf(s).New().Elem().Interface(), "string")
+	gt.Equal([2]string{"", ""}, ValueOf(a).New().Elem().Interface(), "array")
+	gt.Equal([]string(nil), ValueOf(l).New().Elem().Interface(), "slice")
+	gt.Equal(map[string]string(nil), ValueOf(m).New().Elem().Interface(), "map")
+	gt.Equal(string_struct{}, ValueOf(d).New().Elem().Interface(), "struct")
+	gt.Equal([1]string{""}, ValueOf(a1).New().Elem().Interface(), "array(1)")
+	gt.Equal(string_struct_single{}, ValueOf(d1).New().Elem().Interface(), "struct(1)")
 
-	gt.Equal(ValueOf(&b).New().Elem().Set(&b).Interface(), nil, "bool")
-	/* gt.Equal(ValueOf(i).New().Interface(), 0, "int")
-	gt.Equal(ValueOf(s).New().Interface(), "", "string")
-	gt.Equal(ValueOf(a).New().Interface(), [2]string{"", ""}, "array")
-	gt.Equal(ValueOf(l).New().Interface(), []string(nil), "slice")
-	gt.Equal(ValueOf(m).New().Interface(), map[string]string(nil), "map")
-	gt.Equal(ValueOf(d).New().Interface(), string_struct{}, "struct")
-	gt.Equal(ValueOf(a1).New().Interface(), [1]string{""}, "array len 1")
-	gt.Equal(ValueOf(d1).New().Interface(), string_struct_single{}, "struct len 1") */
+	gt.Equal(b, ValueOf(&b).New().Elem().Set(b).Interface(), "bool")
+	gt.Equal(i, ValueOf(&i).New().Elem().Set(i).Interface(), "int")
+	gt.Equal(s, ValueOf(&s).New().Elem().Set(s).Interface(), "string")
+	gt.Equal(a, ValueOf(a).New().Elem().Set(a).Interface(), "array")
 
 }
 
@@ -174,10 +183,21 @@ func TestValueSerialize(t *testing.T) {
 	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Serialize(), "*struct(1)")
 }
 
+func TestValueSerializePrint(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).Serialize() key: %s\n  value:\t%s"
+	err := "%!v(PANIC=String method: runtime error: invalid memory address or nil pointer dereference)"
+	for n, v := range getTestVars() {
+		val := ValueOf(v)
+		s := STRING(val.Serialize())
+		gt.False(s == "" || s.Contains(err), val.typ, n, s)
+	}
+}
+
 func TestValueSetTyped(t *testing.T) {
 	gt := test.New(t, config)
 	gt.Msg = "Testing ValueOf(%s).Set(%s)"
-	vars := createTestVars()
+	vars := getTestVars()
 	var (
 		b  = false
 		i  = 2
@@ -199,8 +219,7 @@ func TestValueSetTyped(t *testing.T) {
 	gt.Equal(d, ValueOf(vars["struct"]).Set(d).Interface(), "struct", "struct")
 	gt.Equal(a1, ValueOf(vars["array_string_single"]).Set(a1).Interface(), "array(1)", "array(1)")
 	gt.Equal(d1, ValueOf(vars["struct_string_single"]).Set(d1).Interface(), "struct(1)", "struct(1)")
-
-	gt.Equal(b, ValueOf(vars["ptr_bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
+	gt.Equal(ValueOf(&b).Elem().Interface(), ValueOf(vars["ptr_bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
 	gt.Equal(i, ValueOf(vars["ptr_int"]).Set(&i).Elem().Interface(), "*int", "*int")
 	gt.Equal(s, ValueOf(vars["ptr_string"]).Set(&s).Elem().Interface(), "*string", "*string")
 	gt.Equal(a, ValueOf(vars["ptr_array"]).Set(&a).Elem().Interface(), "*array", "*array")
@@ -214,7 +233,7 @@ func TestValueSetTyped(t *testing.T) {
 func TestValueSetPtr(t *testing.T) {
 	gt := test.New(t, config)
 	gt.Msg = "Testing ValueOf(%s).Set(%s)"
-	vars := createTestVars()
+	vars := getTestVars()
 	var (
 		b  = false
 		i  = 2
@@ -321,13 +340,7 @@ func TestValueSetUntyped(t *testing.T) {
 		u_int_bool   = 1
 		u_uint_bool  = uint(1)
 		u_float_bool = 1.0
-		/* u_array_any  = [2]any{"0", "123"}
-		u_slice_any  = []any{"0", "123"}
-		u_map_any    = map[string]any{"0": "0", "1": "123"} */
-		u_time_str = TIME(time.Unix(123, 0).UTC())
-		//u_map_struct = map[string]any{"V1": "0", "V2": "123"}
-
-		//test_struct = &string_struct{}
+		u_time_str   = TIME(time.Unix(123, 0).UTC())
 	)
 
 	// Test return values of Set()
@@ -522,85 +535,15 @@ func TestValueSetUntyped(t *testing.T) {
 
 }
 
-/*
-	func TestValueSetIndex(t *testing.T) {
-		gt := test.New(t, config)
-		gt.Msg = "Testing ValueOf(%s).Index(%d).Set(%s)"
-		var (
-			array1_array  = [2][1]string{{"0"}, {"0"}}
-			array_array   = [2][2]string{{"0", "0"}, {"0", "0"}}
-			slice_array   = [2][]string{{"0", "0"}, {"0", "0"}}
-			map_array     = [2]map[string]string{{"0": "0"}, {"0": "0"}}
-			struct_array  = [2]string_struct{{"0", "0"}, {"0", "0"}}
-			struct1_array = [2]string_struct_single{{"0"}, {"0"}}
-
-			array1_ptr_array  = [2]*[1]string{{"0"}, {"0"}}
-			array_ptr_array   = [2]*[2]string{{"0", "0"}, {"0", "0"}}
-			slice_ptr_array   = [2]*[]string{{"0", "0"}, {"0", "0"}}
-			map_ptr_array     = [2]*map[string]string{{"0": "0"}, {"0": "0"}}
-			struct_ptr_array  = [2]*string_struct{{"0", "0"}, {"0", "0"}}
-			struct1_ptr_array = [2]*string_struct_single{{"0"}, {"0"}}
-
-			array1_slice  = [][1]string{{"0"}, {"0"}}
-			array_slice   = [][2]string{{"0", "0"}, {"0", "0"}}
-			slice_slice   = [][]string{{"0", "0"}, {"0", "0"}}
-			map_slice     = []map[string]string{{"0": "0"}, {"0": "0"}}
-			struct_slice  = []string_struct{{"0", "0"}, {"0", "0"}}
-			struct1_slice = []string_struct_single{{"0"}, {"0"}}
-
-			array1_ptr_slice  = []*[1]string{{"0"}, {"0"}}
-			array_ptr_slice   = []*[2]string{{"0", "0"}, {"0", "0"}}
-			slice_ptr_slice   = []*[]string{{"0", "0"}, {"0", "0"}}
-			map_ptr_slice     = []*map[string]string{{"0": "0"}, {"0": "0"}}
-			struct_ptr_slice  = []*string_struct{{"0", "0"}, {"0", "0"}}
-			struct1_ptr_slice = []*string_struct_single{{"0"}, {"0"}}
-
-			array1_map  = map[string][1]string{"0": {"0"}, "1": {"0"}}
-			array_map   = map[string][2]string{"0": {"0", "0"}, "1": {"0", "0"}}
-			slice_map   = map[string][]string{"0": {"0", "0"}, "1": {"0", "0"}}
-			map_map     = map[string]map[string]string{"0": {"0": "0"}, "1": {"0": "0"}}
-			struct_map  = map[string]string_struct{"0": {"0", "0"}, "1": {"0", "0"}}
-			struct1_map = map[string]string_struct_single{"0": {"0"}, "1": {"0"}}
-
-			array1_ptr_map  = map[string]*[1]string{"0": {"0"}, "1": {"0"}}
-			array_ptr_map   = map[string]*[2]string{"0": {"0", "0"}, "1": {"0", "0"}}
-			slice_ptr_map   = map[string]*[]string{"0": {"0", "0"}, "1": {"0", "0"}}
-			map_ptr_map     = map[string]*map[string]string{"0": {"0": "0"}, "1": {"0": "0"}}
-			struct_ptr_map  = map[string]*string_struct{"0": {"0", "0"}, "1": {"0", "0"}}
-			struct1_ptr_map = map[string]*string_struct_single{"0": {"0"}, "1": {"0"}}
-
-			array1_struct = array_struct_single{[1]string{"0"}}
-			array_struct  = array_struct{[2]string{"0", "0"},[2]string{"0", "0"}}
-			slice_struct  = slice_struct{[]string{"0", "0"},[]string{"0", "0"}}
-			map_struct    = map_struct{map[string]string{"0": "0"},map[string]string{"0": "0"}}
-			struct_struct = struct_struct{string_struct{"0", "0"},string_struct{"0", "0"}}
-			struct1_struct = struct_struct_single{string_struct_single{"0"}}
-
-			array1_ptr_struct = array_ptr_struct_single{&[1]string{"0"}}
-			array_ptr_struct  = array_ptr_struct{&[2]string{"0", "0"},&[2]string{"0", "0"}}
-			slice_ptr_struct  = slice_ptr_struct{&[]string{"0", "0"},&[]string{"0", "0"}}
-			map_ptr_struct    = map_ptr_struct{&map[string]string{"0": "0"},&map[string]string{"0": "0"}}
-			struct_ptr_struct = struct_ptr_struct{&string_struct{"0", "0"},&string_struct{"0", "0"}}
-			struct1_ptr_struct = struct_ptr_struct_single{&string_struct_single{"0"}}
-
-			n = "123"
-
-		)
-
-}
-*/
 func TestValueSetIndex(t *testing.T) {
 	gt := test.New(t, config)
 	gt.Msg = "Testing ValueOf(%s).Set()"
-	for n, a := range createTestVars() {
-		fmt.Println(n)
-		fmt.Println(testGetDeep(a))
-		/* fmt.Println(n)
-		nv := testSetDeep(a, false)
-		fmt.Println(nv)
-		gt.Equal("true", testGetDeep(nv), n) */
+	for n, _ := range getTestVars() {
+		a := createTestVars(false, 0, "false", n)[n]
+		nv := ValueOf(&a).Elem().SetType()
+		testSetDeep(nv, false)
+		gt.Equal("true", testGetDeep(nv), n)
 	}
-
 }
 
 func testSet(original, new any) any {
@@ -615,50 +558,41 @@ func testSetIndex(original, new any, index int) any {
 	return n
 }
 
-func testSetDeep(val any, embedded bool) any {
-	n := val
-	var v VALUE
-	if a, is := n.(VALUE); is {
-		v = a
-	} else {
-		v = ValueOf(&n)
-	}
+func testSetDeep(v VALUE, embedded bool) {
 	switch v.Kind() {
 	case Pointer, Interface:
-		if !embedded {
-			testSetDeep(v.Elem(), true)
-		}
+		testSetDeep(v.Elem(), true)
 	case Array, Slice, Map, Struct:
 		if !embedded {
 			testSetDeep(v.Index(0), true)
-		}
-		if testGetDeep(v.Index(0)) == "true" {
+		} else if testGetDeep(v.Index(0)) == "true" {
 			panic("value already set")
-		}
-		switch v.Kind() {
-		case Array:
-			if _, is := v.Interface().([2]string); is {
-				v.Set([2]string{"true", "false"})
-			} else {
-				testSetDeep(v.Index(0), true)
-			}
-		case Slice:
-			if _, is := v.Interface().([]string); is {
-				v.Set([]string{"true", "false"})
-			} else {
-				testSetDeep(v.Index(0), true)
-			}
-		case Map:
-			if _, is := v.Interface().(map[string]string); is {
-				v.Set(map[string]string{"0": "true", "1": "false"})
-			} else {
-				testSetDeep(v.Index(0), true)
-			}
-		case Struct:
-			if _, is := v.Interface().(string_struct); is {
-				v.Set(string_struct{"true", "false"})
-			} else {
-				testSetDeep(v.Index(0), true)
+		} else {
+			switch v.Kind() {
+			case Array:
+				if _, is := v.Interface().([2]string); is {
+					v.Set([2]string{"true", "false"})
+				} else {
+					testSetDeep(v.Index(0), true)
+				}
+			case Slice:
+				if _, is := v.Interface().([]string); is && v.Len() == 2 {
+					v.Set([]string{"true", "false"})
+				} else {
+					testSetDeep(v.Index(0), true)
+				}
+			case Map:
+				if _, is := v.Interface().(map[string]string); is && v.Len() == 2 {
+					v.Set(map[string]string{"0": "true", "1": "false"})
+				} else {
+					testSetDeep(v.Index(0), true)
+				}
+			case Struct:
+				if _, is := v.Interface().(string_struct); is {
+					v.Set(string_struct{"true", "false"})
+				} else {
+					testSetDeep(v.Index(0), true)
+				}
 			}
 		}
 	case Bool:
@@ -670,26 +604,24 @@ func testSetDeep(val any, embedded bool) any {
 	default:
 		panic("value type not supported")
 	}
-	return n
 }
 
-func testGetDeep(val any) string {
-	n := val
-	var v VALUE
-	if a, is := n.(VALUE); is {
-		v = a
-	} else {
-		v = ValueOf(n)
+func testGetDeep(v VALUE) string {
+	v = testGetDeepValue(v)
+	if v.Kind() == Int {
+		v = v.BOOL().VALUE()
 	}
+	return v.String()
+}
+
+func testGetDeepValue(v VALUE) VALUE {
 	switch v.Kind() {
 	case Pointer, Interface:
-		return testGetDeep(v.Elem())
+		return testGetDeepValue(v.Elem())
 	case Array, Slice, Map, Struct:
-		return testGetDeep(v.Index(0))
-	case Bool, String:
-		return v.String()
-	case Int:
-		return v.BOOL().String()
+		return testGetDeepValue(v.Index(0))
+	case Bool, String, Int:
+		return v
 	}
 	panic("value type not supported")
 }
@@ -843,7 +775,7 @@ func TestValueConversion(t *testing.T) {
 
 	gt.Msg = "Testing ValueOf(%s).%s"
 	test_struct = &string_struct{}
-	ValueOf(bytes_struct).JSON().Scan(test_struct)
+	JSON(str_struct).Scan(test_struct)
 	gt.Equal(_struct, *test_struct, "bytes", "JSON().Scan(struct)")
 	test_struct = &string_struct{}
 	ValueOf(_array).ARRAY().Scan(test_struct)

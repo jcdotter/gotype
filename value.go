@@ -6,6 +6,8 @@
 package gotype
 
 import (
+	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"unsafe"
@@ -52,7 +54,12 @@ func (v VALUE) Reflect() reflect.Value {
 // SetType sets the actual data type of interface VALUE
 func (v VALUE) SetType() VALUE {
 	if v.Kind() == Interface {
-		return v.Elem()
+		//v.typ = v.typ.elem()
+		//v.flag = v.typ.flag()
+		/*  if !v.typ.IfaceIndir() {
+			v.ptr = *(*unsafe.Pointer)(v.ptr)
+		}*/
+		v = v.Elem()
 	}
 	return v
 }
@@ -73,29 +80,49 @@ func (v VALUE) NewDeep() VALUE {
 	n := v.New(true)
 	switch v.Kind() {
 	case Array:
-		(ARRAY)(v).ForEach(func(i int, k string, v VALUE) (brake bool) {
-			(ARRAY)(n).index(i).Set(v.NewDeep())
-			return
-		})
+		s := ""
+		p0 := n.Index(0).ptr
+		p1 := n.Index(1).ptr
+		*(*unsafe.Pointer)(p0) = unsafe.Pointer(&s)
+		*(*unsafe.Pointer)(p1) = unsafe.Pointer(&s)
+		fmt.Println("setting new deep: array", n.typ, n.ptr, p0, p1, n.Interface(), n.Serialize())
+		fmt.Printf("%#v\n", **(**string)(p0))
+		os.Exit(1)
+		if !(*arrayType)(unsafe.Pointer(v.typ)).elem.Kind().IsBasic() {
+			a := n.Elem().ARRAY()
+			fmt.Println(a.Interface())
+			(ARRAY)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+				ev := e.NewDeep()
+				fmt.Println(ev.typ, ev.ptr, ev.Serialize())
+				id := a.index(i)
+				fmt.Println(id.typ, id.ptr, id.Interface())
+				a.index(i).Set(e.NewDeep())
+				return
+			})
+		}
 	case Map:
-		(MAP)(v).ForEach(func(i int, k string, v VALUE) (brake bool) {
-			(MAP)(n).Set(k, v.NewDeep())
+		(MAP)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+			(MAP)(n).Set(k, e.NewDeep())
 			return
 		})
 	case Pointer:
-		n.Elem().Set(v.Elem().NewDeep())
+		if !v.typ.elem().Kind().IsBasic() {
+			n.Elem().Set(v.Elem().NewDeep())
+			//*(*unsafe.Pointer)(&n.ptr) = v.Elem().NewDeep().ptr
+		}
 	case Slice:
 		n.Extend(v.Len())
-		(SLICE)(v).ForEach(func(i int, k string, v VALUE) (brake bool) {
-			(SLICE)(n).Set(i, v.NewDeep())
+		(SLICE)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+			(SLICE)(n).Set(i, e.NewDeep())
 			return
 		})
 	case Struct:
-		(STRUCT)(v).ForEach(func(i int, k string, v VALUE) (brake bool) {
-			(STRUCT)(n).index(i).Set(v.NewDeep())
+		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+			(STRUCT)(n).index(i).Set(e.NewDeep())
 			return
 		})
 	}
+	//fmt.Printf("setting new deep: (%s)(%s) >> (%s)(%s)\n", v.typ, v.Serialize(), n.typ, n.Serialize())
 	return n
 }
 
@@ -304,7 +331,8 @@ func (v VALUE) setMatched(n VALUE) VALUE {
 	case Map: // hmap header size
 		*(*[48]byte)(v.Pointer()) = *(*[48]byte)(n.Pointer())
 	case Pointer:
-		v.Elem().setMatched(n.Elem())
+		//v.Elem().setMatched(n.Elem())
+		*(*unsafe.Pointer)(&v.ptr) = n.ptr
 	case Slice: // slice header size
 		*(*[24]byte)(v.ptr) = *(*[24]byte)(n.ptr)
 	case String: // string header size

@@ -76,7 +76,7 @@ var (
 	ttime_val = ValueOf(time.Time{})
 )
 
-func TestAll(t *testing.T) {
+func Test_All(t *testing.T) {
 	//TestAddrs(t)
 	//TestEmptyAddrs(t)
 	TestValidations(t)

@@ -118,25 +118,15 @@ func (m MAP) Keys() []string {
 // returns nil pointer if key does not exist
 func (m MAP) Index(k string) VALUE {
 	t := (*mapType)(unsafe.Pointer(m.typ)).elem
-	if t.IfaceIndir() {
-		return VALUE{
-			t,
-			mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k),
-			t.flag(),
-		}.SetType()
-	}
-	return VALUE{
+	v := VALUE{
 		t,
-		*(*unsafe.Pointer)(mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k)),
-		m.flag&(flagIndir|flagAddr) | flag(t.Kind()),
-	}.SetType()
-	/* p := mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k)
-	f := m.flag | flag(t.Kind())
-	if t.IfaceIndir() {
-		p = *(*unsafe.Pointer)(p)
+		mapaccess_faststr(m.typ, (VALUE)(m).Pointer(), k),
+		t.flag(),
 	}
-	f = t.flag()
-	return VALUE{t, p, f}.SetType() */
+	if !t.IfaceIndir() {
+		v.ptr = *(*unsafe.Pointer)(v.ptr)
+	}
+	return v.SetType()
 }
 
 // ForEach executes function f on each item in ARRAY,
@@ -169,10 +159,10 @@ func (m MAP) ForEach(f func(i int, k string, v VALUE) (brake bool)) {
 			v := VALUE{
 				t.elem,
 				unsafe.Pointer(b + voff + uintptr(k)*valuesize),
-				m.flag&(flagIndir|flagAddr) | flag(t.elem.Kind()),
+				t.elem.flag(),
 			}.SetType()
-			if v.Kind() == Pointer {
-				//v.ptr = *(*unsafe.Pointer)(v.ptr)
+			if !t.elem.IfaceIndir() {
+				v.ptr = *(*unsafe.Pointer)(v.ptr)
 			}
 			if f(k, *(*string)(unsafe.Pointer(up)), v) {
 				break
@@ -202,36 +192,7 @@ func (m MAP) Set(k string, v any) MAP {
 		mapdelete_faststr(m.typ, m.ptr, k)
 		return m
 	}
-	typ := (*mapType)(unsafe.Pointer(m.typ)).elem
-	knd := typ.elem().Kind()
-	val := ValueOf(v)
-	switch {
-	case typ == val.typ:
-		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, val.ptr)
-	case typ.elem() == val.typ:
-		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&val.ptr))
-	case typ.Kind() == Interface:
-		if _, isVal := v.(VALUE); isVal {
-			v = val.Interface()
-		}
-		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&v))
-	case knd == String:
-		p := ValueOf(val.String()).ptr
-		if typ.Kind() == Pointer {
-			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
-		} else {
-			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
-		}
-	case knd.IsBasic() && val.typ.Kind().IsBasic():
-		p := ValueOf(val.retype(knd)).ptr
-		if typ.Kind() == Pointer {
-			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
-		} else {
-			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
-		}
-	default:
-		panic("cannot set mismatched data types")
-	}
+	m.Index(k).Set(v)
 	return m
 }
 
