@@ -107,8 +107,8 @@ func (v VALUE) NewDeep() VALUE {
 		})
 	case Pointer:
 		if !v.typ.elem().Kind().IsBasic() {
-			n.Elem().Set(v.Elem().NewDeep())
-			//*(*unsafe.Pointer)(&n.ptr) = v.Elem().NewDeep().ptr
+			//n.Elem().Set(v.Elem().NewDeep())
+			*(*unsafe.Pointer)(&n.ptr) = v.Elem().NewDeep().ptr
 		}
 	case Slice:
 		n.Extend(v.Len())
@@ -332,6 +332,8 @@ func (v VALUE) setMatched(n VALUE) VALUE {
 		*(*[48]byte)(v.Pointer()) = *(*[48]byte)(n.Pointer())
 	case Pointer:
 		//v.Elem().setMatched(n.Elem())
+		fmt.Printf("set pointer: %s >> %s\n", v, n)
+		//*(*unsafe.Pointer)(&v.ptr) = n.ptr
 		*(*unsafe.Pointer)(&v.ptr) = n.ptr
 	case Slice: // slice header size
 		*(*[24]byte)(v.ptr) = *(*[24]byte)(n.ptr)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"unsafe"
 
 	test "github.com/jcdotter/gtest"
 )
@@ -29,14 +30,40 @@ func TestTest(t *testing.T) {
 	} */
 
 	s := "1"
-	//m := &s
-	//m := string_ptr_struct{&s, &s}
 	m := [2]*string{&s, &s}
-	//m := [2]string{s, s}
+	ov := ValueOf(&m)
 
-	n := ValueOf(m).New()
-	//n := ValueOf(m).NewDeep()
-	fmt.Printf("%#v: %s\n", n.Interface(), n)
+	np := ov.New()
+	na := ov.Elem().New()
+
+	i0 := ov.Elem().Index(0).New()
+	*(*unsafe.Pointer)(&i0.ptr) = ov.Elem().Index(0).Elem().New().ptr
+	fmt.Println(i0.typ, i0.Serialize())
+
+	i1 := ov.Elem().Index(1).New()
+	*(*unsafe.Pointer)(&i1.ptr) = ov.Elem().Index(1).Elem().New().ptr
+	fmt.Println(i1.typ, i1.Serialize())
+
+	ap0 := na.Index(0).ptr
+	ap1 := na.Index(1).ptr
+	fmt.Println(ap0, i0.ptr)
+	*(*unsafe.Pointer)(&ap0) = i0.ptr
+	*(*unsafe.Pointer)(&ap1) = i1.ptr
+	fmt.Println(na.typ, na.Serialize())
+
+	*(*unsafe.Pointer)(&np.ptr) = na.ptr
+	fmt.Println(np.typ, np.Serialize())
+
+	/* n := ValueOf(m).New().Elem()
+	p0 := n.Index(0).Elem()
+	p1 := n.Index(1).Elem()
+	//*(*unsafe.Pointer)(p0.ptr) = unsafe.Pointer(&s)
+	//*(*unsafe.Pointer)(p1.ptr) = unsafe.Pointer(&s)
+	p0.Set(s)
+	p1.Set(s)
+
+	fmt.Printf("%#v: %s\n", n.Interface(), n) */
+	//fmt.Println(*(*unsafe.Pointer)(p0))
 }
 
 func TestAll(t *testing.T) {
@@ -47,7 +74,8 @@ func TestAll(t *testing.T) {
 	TestValueSerialize(t)
 	TestValueSerializePrint(t)
 	TestValueSetTyped(t)
-	TestValueSetPtr(t)
+	TestValueSetPtrPtr(t)
+	TestValueSetPtrVal(t)
 	TestValueSetUntyped(t)
 	TestValueConversion(t)
 
@@ -219,7 +247,26 @@ func TestValueSetTyped(t *testing.T) {
 	gt.Equal(d, ValueOf(vars["struct"]).Set(d).Interface(), "struct", "struct")
 	gt.Equal(a1, ValueOf(vars["array_string_single"]).Set(a1).Interface(), "array(1)", "array(1)")
 	gt.Equal(d1, ValueOf(vars["struct_string_single"]).Set(d1).Interface(), "struct(1)", "struct(1)")
-	gt.Equal(ValueOf(&b).Elem().Interface(), ValueOf(vars["ptr_bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
+
+}
+
+func TestValueSetPtrPtr(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).Set(%s)"
+	vars := createTestVars(1 == 2, 0, "false")
+	var (
+		b  = true
+		i  = 2
+		s  = "updated"
+		a  = [2]string{"updated", "updated"}
+		l  = []string{"updated", "updated"}
+		m  = map[string]string{"0": "updated", "1": "updated"}
+		d  = string_struct{"updated", "updated"}
+		a1 = [1]string{"updated"}
+		d1 = string_struct_single{"updated"}
+	)
+
+	gt.Equal(b, ValueOf(vars["ptr_bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
 	gt.Equal(i, ValueOf(vars["ptr_int"]).Set(&i).Elem().Interface(), "*int", "*int")
 	gt.Equal(s, ValueOf(vars["ptr_string"]).Set(&s).Elem().Interface(), "*string", "*string")
 	gt.Equal(a, ValueOf(vars["ptr_array"]).Set(&a).Elem().Interface(), "*array", "*array")
@@ -230,7 +277,7 @@ func TestValueSetTyped(t *testing.T) {
 	gt.Equal(d1, ValueOf(vars["ptr_struct_single"]).Set(&d1).Elem().Interface(), "*struct(1)", "*struct(1)")
 }
 
-func TestValueSetPtr(t *testing.T) {
+func TestValueSetPtrVal(t *testing.T) {
 	gt := test.New(t, config)
 	gt.Msg = "Testing ValueOf(%s).Set(%s)"
 	vars := getTestVars()
