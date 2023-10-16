@@ -143,3 +143,7 @@ func fastrand() uint32
 //go:noescape
 //go:linkname fastrand64 runtime.fastrand64
 func fastrand64() uint64
+
+//go:noescape
+//go:linkname M reflect.M
+func M() map[string]*reflect.Method

@@ -72,15 +72,35 @@ func reflectType(t reflect.Type) *rtype {
 }
 
 // New returns a new indirect Value of the Type
-func (r *rtype) New() VALUE {
+func (r *rtype) New(length ...int) VALUE {
 	if r != nil {
-		n := reflect.New(toType(r.elem()))
-		/* //if r.Kind() != Pointer {
-		n = n.Elem()
-		//} */
-		return FromReflect(n)
+		t := r.elem()
+		var p unsafe.Pointer
+		switch t.Kind() {
+		case Map:
+			n := makemap(t, 0, nil)
+			p = unsafe.Pointer(&n)
+		case Pointer:
+			n := unsafe_New(t)
+			p = unsafe.Pointer(&n)
+		case Slice:
+			ln := 0
+			if len(length) > 0 {
+				ln = length[0]
+			}
+			s := (*sliceType)(unsafe.Pointer(t))
+			p = unsafe.Pointer(&sliceHeader{unsafe_NewArray(s.elem, ln), ln, ln})
+		default:
+			p = unsafe_New(t)
+		}
+		return VALUE{t.ptrType(), p, flag(Pointer)}
+		//return FromReflect(reflect.New(toType(r.elem())))
 	}
 	panic("call to New on nil type")
+}
+
+func (r *rtype) ptrType() *rtype {
+	return reflectType(reflect.PtrTo(toType(r)))
 }
 
 // newPtr returns a pointer to a new value instance of the Type
@@ -255,6 +275,21 @@ type fieldType struct {
 	name   name    // name is always non-empty
 	typ    *rtype  // type of field
 	offset uintptr // byte offset of field
+}
+
+type interfaceType struct {
+	*rtype
+	PkgPath name      // import path
+	Methods []Imethod // sorted by hash
+}
+
+func (i *interfaceType) NumMethod() int {
+	return len(i.Methods)
+}
+
+type Imethod struct {
+	_ nameOff
+	_ typeOff
 }
 
 // ------------------------------------------------------------ /

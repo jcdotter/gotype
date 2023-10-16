@@ -101,13 +101,14 @@ func (s SLICE) Extend(n int) SLICE {
 	t := (*sliceType)(unsafe.Pointer(s.typ))
 	if h.Cap < h.Len+n {
 		*h = growslice(t.elem, *h, n)
+		h.Cap = h.Len + n
 	}
-	if t.elem.Kind().CanNil() {
+	/* if t.elem.Kind().CanNil() {
 		np := t.elem.newPtr()
 		for i := 0; i < n; i++ {
 			*(*unsafe.Pointer)(unsafe.Pointer(uintptr(h.Data) + (uintptr(h.Len)+uintptr(i))*t.elem.size)) = np
 		}
-	}
+	} */
 	h.Len += n
 	return s
 }

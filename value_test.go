@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	"unsafe"
 
 	test "github.com/jcdotter/gtest"
 )
@@ -29,8 +28,10 @@ func TestTest(t *testing.T) {
 		"1": {"0": "0", "1": "1"},
 	} */
 
-	s := "1"
-	m := [2]*string{&s, &s}
+	//s := "1"
+	s := []string{"0", "1"}
+
+	/* m := [2]*string{&s, &s}
 	ov := ValueOf(&m)
 
 	np := ov.New()
@@ -46,24 +47,80 @@ func TestTest(t *testing.T) {
 
 	ap0 := na.Index(0).ptr
 	ap1 := na.Index(1).ptr
-	fmt.Println(ap0, i0.ptr)
-	*(*unsafe.Pointer)(&ap0) = i0.ptr
-	*(*unsafe.Pointer)(&ap1) = i1.ptr
+	*(*unsafe.Pointer)(ap0) = i0.ptr
+	*(*unsafe.Pointer)(ap1) = i1.ptr
 	fmt.Println(na.typ, na.Serialize())
 
 	*(*unsafe.Pointer)(&np.ptr) = na.ptr
 	fmt.Println(np.typ, np.Serialize())
 
-	/* n := ValueOf(m).New().Elem()
-	p0 := n.Index(0).Elem()
-	p1 := n.Index(1).Elem()
-	//*(*unsafe.Pointer)(p0.ptr) = unsafe.Pointer(&s)
-	//*(*unsafe.Pointer)(p1.ptr) = unsafe.Pointer(&s)
-	p0.Set(s)
-	p1.Set(s)
+	fmt.Println(np.typ, ov.NewDeep()) */
 
-	fmt.Printf("%#v: %s\n", n.Interface(), n) */
-	//fmt.Println(*(*unsafe.Pointer)(p0))
+	p := &s
+	pp := &p
+	/* sp := ValueOf(p).NewDeep()
+	spp := ValueOf(&p).NewDeep() */
+	sppp := ValueOf(&pp).NewDeep()
+	/* fmt.Println(sp.typ, sp.Serialize())
+	fmt.Println(spp.typ, spp.Serialize()) */
+	fmt.Println(sppp.typ, sppp.Serialize())
+
+}
+
+func TestNew(t *testing.T) {
+
+	/* as := [2]string{"0", "1"}
+	asn := ValueOf(as).NewDeep()
+	fmt.Println(asn.typ, asn.Serialize())
+	ap := [2]*string{&as[0], &as[1]}
+	apn := ValueOf(&ap).NewDeep()
+	fmt.Println(apn.typ, apn.Serialize())
+
+	ss := []string{"0", "1"}
+	ssn := ValueOf(ss).NewDeep()
+	fmt.Println(ssn.typ, ssn.Serialize())
+	sp := []*string{&ss[0], &ss[1]}
+	spn := ValueOf(&sp).NewDeep()
+	fmt.Println(spn.typ, spn.Serialize())
+
+	ds := string_struct{"0", "1"}
+	dsn := ValueOf(ds).NewDeep()
+	fmt.Println(dsn.typ, dsn.Serialize())
+	dp := string_ptr_struct{&ss[0], &ss[1]}
+	dpn := ValueOf(&dp).NewDeep()
+	fmt.Println(dpn.typ, dpn.Serialize())
+
+	ms := map[string]string{"0": "0", "1": "1"}
+	msn := ValueOf(ms).NewDeep()
+	fmt.Println(msn.Elem().Len(), msn.typ, msn.Serialize())
+	p := ms["0"]
+	mp := map[string]*string{"0": &p, "1": &p}
+	mpn := ValueOf(&mp).NewDeep()
+	fmt.Println(msn.Elem().Len(), mpn.typ, mpn.Serialize())
+
+	os.Exit(1) */
+
+	//table := [][]string{{"Name", "Kind", "Type", "IfaceIndir", "Empty"}}
+	for n, v := range getTestVars() {
+		if n == "slice_ptr_any" {
+			val := ValueOf(v)
+			//table = append(table, []string{n, val.Kind().String(), val.typ.String(), BOOL(val.typ.IfaceIndir()).String(), val.NewDeep().Serialize()})
+			fmt.Print(n, ":\t")
+			fmt.Print(val.typ, "\t")
+			fmt.Print(val.typ.IfaceIndir(), "\t")
+			fmt.Print(val.NewDeep().Serialize(), "\n")
+		}
+	}
+	//test.PrintTable(table, true)
+}
+
+func TestIndirect(t *testing.T) {
+	table := [][]string{{"Name", "Kind", "Type", "IfaceIndir", "flagIndir"}}
+	for n, v := range getTestVars() {
+		val := ValueOf(v)
+		table = append(table, []string{n, val.Kind().String(), val.typ.String(), BOOL(val.typ.IfaceIndir()).String(), BOOL(val.flag&flagIndir != 0).String()})
+	}
+	test.PrintTable(table, true)
 }
 
 func TestAll(t *testing.T) {
@@ -108,8 +165,8 @@ func TestValueNew(t *testing.T) {
 	gt.Equal(0, ValueOf(i).New().Elem().Interface(), "int")
 	gt.Equal("", ValueOf(s).New().Elem().Interface(), "string")
 	gt.Equal([2]string{"", ""}, ValueOf(a).New().Elem().Interface(), "array")
-	gt.Equal([]string(nil), ValueOf(l).New().Elem().Interface(), "slice")
-	gt.Equal(map[string]string(nil), ValueOf(m).New().Elem().Interface(), "map")
+	gt.Equal([]string{}, ValueOf(l).New().Elem().Interface(), "slice")
+	gt.Equal(map[string]string{}, ValueOf(m).New().Elem().Interface(), "map")
 	gt.Equal(string_struct{}, ValueOf(d).New().Elem().Interface(), "struct")
 	gt.Equal([1]string{""}, ValueOf(a1).New().Elem().Interface(), "array(1)")
 	gt.Equal(string_struct_single{}, ValueOf(d1).New().Elem().Interface(), "struct(1)")
@@ -585,8 +642,8 @@ func TestValueSetUntyped(t *testing.T) {
 func TestValueSetIndex(t *testing.T) {
 	gt := test.New(t, config)
 	gt.Msg = "Testing ValueOf(%s).Set()"
-	for n, _ := range getTestVars() {
-		a := createTestVars(false, 0, "false", n)[n]
+	for n := range getTestVars() {
+		a := createTestVars(0 == 1, (0 * 1), "false", n)[n]
 		nv := ValueOf(&a).Elem().SetType()
 		testSetDeep(nv, false)
 		gt.Equal("true", testGetDeep(nv), n)

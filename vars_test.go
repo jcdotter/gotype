@@ -227,6 +227,15 @@ func createTestVars(b bool, i int, s string, item ...string) map[string]any {
 		"slice_ptr_struct_single": []*string_struct_single{{s}},
 		"slice_ptr_any_single":    []any{&s},
 
+		"slice_ptr_bool":   []*bool{&b, &b},
+		"slice_ptr_int":    []*int{&i, &i},
+		"slice_ptr_string": []*string{&s, &s},
+		"slice_ptr_array":  [][2]*string{{&s, &s}, {&s, &s}},
+		"slice_ptr_slice":  [][]*string{{&s, &s}, {&s, &s}},
+		"slice_ptr_map":    []*map[string]string{{"0": s, "1": s}, {"0": s, "1": s}},
+		"slice_ptr_struct": []*string_struct{{s, s}, {s, s}},
+		"slice_ptr_any":    []any{&s, &s},
+
 		"map_bool_single":   map[string]bool{"0": b},
 		"map_int_single":    map[string]int{"0": i},
 		"map_string_single": map[string]string{"0": s},

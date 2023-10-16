@@ -66,7 +66,7 @@ func (v VALUE) MAP() MAP {
 
 // Len returns the number of items in MAP
 func (m MAP) Len() int {
-	if p := m.ptr; p != nil {
+	if p := (VALUE)(m).Pointer(); p != nil {
 		return *(*int)(p)
 	}
 	return 0
@@ -192,7 +192,16 @@ func (m MAP) Set(k string, v any) MAP {
 		mapdelete_faststr(m.typ, m.ptr, k)
 		return m
 	}
-	m.Index(k).Set(v)
+	etyp := (*mapType)(unsafe.Pointer(m.typ)).elem
+	val := ValueOfV(v)
+	if val.typ != etyp {
+		val = val.convert(etyp)
+	}
+	if !etyp.IfaceIndir() {
+		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&val.ptr))
+	} else {
+		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, val.ptr)
+	}
 	return m
 }
 

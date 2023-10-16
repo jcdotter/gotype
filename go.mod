@@ -4,7 +4,7 @@ go 1.21.1
 
 require (
 	github.com/google/uuid v1.3.1
-	github.com/jcdotter/gtest v0.0.2
+	github.com/jcdotter/gtest v0.0.3
 )
 
 require (
