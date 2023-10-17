@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 	"time"
+	"unsafe"
 
 	test "github.com/jcdotter/gtest"
 )
@@ -69,49 +70,158 @@ func TestTest(t *testing.T) {
 
 func TestNew(t *testing.T) {
 
-	/* as := [2]string{"0", "1"}
+	as := [2]string{"0", "1"}
 	asn := ValueOf(as).NewDeep()
+	testSetDeep(asn, false)
 	fmt.Println(asn.typ, asn.Serialize())
 	ap := [2]*string{&as[0], &as[1]}
 	apn := ValueOf(&ap).NewDeep()
+	testSetDeep(apn, false)
 	fmt.Println(apn.typ, apn.Serialize())
+
+	a1s := [1]string{"0"}
+	a1sn := ValueOf(a1s).NewDeep()
+	testSetDeep(a1sn, false)
+	fmt.Println(a1sn.typ, a1sn.Serialize())
+	a1p := [1]*string{&as[0]}
+	a1pn := ValueOf(&a1p).NewDeep()
+	testSetDeep(a1pn, false)
+	fmt.Println(a1pn.typ, a1pn.Serialize())
 
 	ss := []string{"0", "1"}
 	ssn := ValueOf(ss).NewDeep()
+	testSetDeep(ssn, false)
 	fmt.Println(ssn.typ, ssn.Serialize())
 	sp := []*string{&ss[0], &ss[1]}
 	spn := ValueOf(&sp).NewDeep()
+	testSetDeep(spn, false)
 	fmt.Println(spn.typ, spn.Serialize())
 
 	ds := string_struct{"0", "1"}
 	dsn := ValueOf(ds).NewDeep()
+	testSetDeep(dsn, false)
 	fmt.Println(dsn.typ, dsn.Serialize())
 	dp := string_ptr_struct{&ss[0], &ss[1]}
 	dpn := ValueOf(&dp).NewDeep()
+	testSetDeep(dpn, false)
 	fmt.Println(dpn.typ, dpn.Serialize())
 
 	ms := map[string]string{"0": "0", "1": "1"}
 	msn := ValueOf(ms).NewDeep()
+	testSetDeep(msn, false)
 	fmt.Println(msn.Elem().Len(), msn.typ, msn.Serialize())
 	p := ms["0"]
 	mp := map[string]*string{"0": &p, "1": &p}
 	mpn := ValueOf(&mp).NewDeep()
+	testSetDeep(mpn, false)
 	fmt.Println(msn.Elem().Len(), mpn.typ, mpn.Serialize())
 
-	os.Exit(1) */
+	am := [2]map[string]string{{"0": "0", "1": "1"}, {"0": "0", "1": "1"}}
+	amn := ValueOf(am).NewDeep()
+	testSetDeep(amn, false)
+	fmt.Println(amn.typ, amn.Serialize())
+	amp := [2]*map[string]string{&am[0], &am[1]}
+	ampn := ValueOf(&amp).NewDeep()
+	testSetDeep(ampn, false)
+	fmt.Println(ampn.typ, ampn.Serialize())
 
-	//table := [][]string{{"Name", "Kind", "Type", "IfaceIndir", "Empty"}}
+	a1m := [1]map[string]string{{"0": "0", "1": "1"}}
+	a1mn := ValueOf(a1m).NewDeep()
+	testSetDeep(a1mn, false)
+	fmt.Println(a1mn.typ, a1mn.Serialize())
+	a1mp := [1]*map[string]string{&a1m[0]}
+	a1mpn := ValueOf(&a1mp).NewDeep()
+	testSetDeep(a1mpn, false)
+	fmt.Println(a1mpn.typ, a1mpn.Serialize())
+
+	//os.Exit(1)
+
 	for n, v := range getTestVars() {
-		if n == "slice_ptr_any" {
-			val := ValueOf(v)
-			//table = append(table, []string{n, val.Kind().String(), val.typ.String(), BOOL(val.typ.IfaceIndir()).String(), val.NewDeep().Serialize()})
-			fmt.Print(n, ":\t")
-			fmt.Print(val.typ, "\t")
-			fmt.Print(val.typ.IfaceIndir(), "\t")
-			fmt.Print(val.NewDeep().Serialize(), "\n")
-		}
+		// slice_ptr_array, array_array_single, map_map
+		//if n == "array_map" {
+		val := ValueOf(v)
+		fmt.Print(n, ":\t")
+		fmt.Print(val.typ, "\t")
+		fmt.Print(val.typ.IfaceIndir(), "\t")
+		fmt.Print(val.NewDeep().Serialize(), "\n")
+		//}
 	}
 	//test.PrintTable(table, true)
+}
+
+func TestRnew(t *testing.T) {
+	table := [][]string{{"Name", "Interface", "Json"}}
+	for n, v := range getTestVars() {
+		r := ValueOf(v).rnew()
+		table = append(table, []string{n, fmt.Sprint(r.Interface()), r.Serialize()})
+	}
+	test.PrintTable(table, true)
+}
+
+func TestRnewDeep(t *testing.T) {
+	for n, v := range getTestVars() {
+		r := ValueOf(v)
+		fmt.Println()
+		fmt.Println(n, r.typ, r.Serialize())
+		fmt.Println("new value:", r.rnewdeep().Serialize())
+	}
+}
+
+func (v VALUE) rnew() VALUE {
+	return VALUE{v.typ.ptrType(), unsafe_New(v.typ), flag(Pointer)}
+}
+
+func (v VALUE) rnewdeep() VALUE {
+	n := v.rnew()
+	switch v.Kind() {
+	case Array:
+		fmt.Println("Array Ptr:", n.Elem().ptr)
+		n.Elem().ForEach(func(i int, k string, e VALUE) (brake bool) {
+			e.Set(e.rnewdeep().Elem())
+			return
+		})
+	case Map:
+		p := makemap(v.typ, (MAP)(v).Len(), nil)
+		mp := VALUE{
+			v.typ.ptrType(),
+			unsafe.Pointer(&p),
+			flag(Pointer),
+		}
+		m := (MAP)(mp.Elem())
+		fmt.Println("Map Ptr:", m.ptr)
+		v.ForEach(func(i int, k string, e VALUE) (brake bool) {
+			m.Set(k, e.rnewdeep().Elem())
+			return
+		})
+		n.Set(mp)
+	case Pointer:
+		fmt.Println("Ptr Ptr:", n.Elem().ptr)
+		n.Set(v.Elem().rnewdeep())
+	case Slice:
+		l := (*sliceHeader)(v.ptr).Len
+		t := (*sliceType)(unsafe.Pointer(v.typ)).elem
+		p := unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, l), l, l})
+		sp := VALUE{
+			v.typ.ptrType(),
+			unsafe.Pointer(&p),
+			flag(Pointer),
+		}
+		s := (SLICE)(sp.Elem())
+		fmt.Println("Slice Ptr:", s.ptr)
+		v.ForEach(func(i int, k string, e VALUE) (brake bool) {
+			s.index(i).Set(e.rnewdeep().Elem())
+			return
+		})
+		n.Set(sp)
+	case Struct:
+		fmt.Println("Struct Ptr:", n.Elem().ptr)
+		n.Elem().ForEach(func(i int, k string, e VALUE) (brake bool) {
+			e.Set(e.rnewdeep().Elem())
+			return
+		})
+	}
+	fmt.Println("returning:", n.typ, n.Serialize())
+	return n
 }
 
 func TestIndirect(t *testing.T) {

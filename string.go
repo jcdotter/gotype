@@ -92,7 +92,11 @@ func (v VALUE) string() string {
 	case Map:
 		return (MAP)(v).String()
 	case Pointer:
-		return v.Elem().String()
+		e := v.Elem()
+		if e.Pointer() == nil {
+			return "null"
+		}
+		return e.String()
 	case Slice:
 		return (SLICE)(v).String()
 	case String:

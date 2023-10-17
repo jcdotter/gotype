@@ -77,6 +77,10 @@ func (r *rtype) New(length ...int) VALUE {
 		t := r.elem()
 		var p unsafe.Pointer
 		switch t.Kind() {
+		case Array:
+			a := (*arrayType)(unsafe.Pointer(r))
+			n := unsafe_NewArray(a.elem, int(a.len))
+			p = unsafe.Pointer(&n)
 		case Map:
 			n := makemap(t, 0, nil)
 			p = unsafe.Pointer(&n)
