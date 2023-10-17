@@ -590,12 +590,15 @@ type ancestor struct {
 }
 
 func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
-	if v.Pointer() == nil {
+	if v.ptr == nil {
 		return "null", false
 	}
 	k := v.KIND()
 	if k.IsBasic() {
 		return v.Serialize(), false
+	}
+	if v.Pointer() == nil {
+		return "null", false
 	}
 	uptr := v.Uintptr()
 	for _, a := range ancestry {

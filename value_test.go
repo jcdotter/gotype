@@ -2,6 +2,7 @@ package gotype
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 	"unsafe"
@@ -149,7 +150,7 @@ func TestNew(t *testing.T) {
 	//test.PrintTable(table, true)
 }
 
-func TestRnew(t *testing.T) {
+func TestRnew_(t *testing.T) {
 	table := [][]string{{"Name", "Interface", "Json"}}
 	for n, v := range getTestVars() {
 		r := ValueOf(v).rnew()
@@ -159,7 +160,24 @@ func TestRnew(t *testing.T) {
 }
 
 func TestRnewDeep(t *testing.T) {
+	l := []string{
+		//"array_array", "array_map", "array_slice", "array_struct", "array_ptr_string", "map_map",
+		//"struct_any",
+		"array_ptr_any_single",
+	}
+	v := getTestVars()
+	for _, n := range l {
+		r := ValueOf(v[n])
+		fmt.Println()
+		fmt.Println(n, r.typ, r.Serialize())
+		e := r.rnewdeep()
+		fmt.Println("new value:", e.Interface(), e.Serialize())
+	}
+	os.Exit(1)
+	i := 0
 	for n, v := range getTestVars() {
+		i++
+		fmt.Println("num:", i)
 		r := ValueOf(v)
 		fmt.Println()
 		fmt.Println(n, r.typ, r.Serialize())
@@ -173,54 +191,76 @@ func (v VALUE) rnew() VALUE {
 
 func (v VALUE) rnewdeep() VALUE {
 	n := v.rnew()
+	new := func(k KIND, n VALUE) VALUE {
+		// evaluate new value
+		nt := (*ptrType)(unsafe.Pointer(n.typ)).elem
+		nk := nt.Kind()
+		if !nk.IsBasic() && (nt.IfaceIndir() || nk == Map || k == Interface) {
+			n = n.Elem()
+		} else if nk == Pointer {
+			n.ptr = *(*unsafe.Pointer)(n.ptr)
+		}
+		return n
+	}
+	set := func(i VALUE, n VALUE) {
+		// set pointer
+		switch i.Kind() {
+		case Interface:
+			*(*any)(i.ptr) = n.Interface()
+		case Map:
+			*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
+		case Slice:
+			*(*[24]byte)(i.ptr) = *(*[24]byte)(n.ptr)
+		default:
+			*(*unsafe.Pointer)(i.ptr) = n.ptr
+		}
+	}
 	switch v.Kind() {
 	case Array:
-		fmt.Println("Array Ptr:", n.Elem().ptr)
-		n.Elem().ForEach(func(i int, k string, e VALUE) (brake bool) {
-			e.Set(e.rnewdeep().Elem())
-			return
-		})
-	case Map:
-		p := makemap(v.typ, (MAP)(v).Len(), nil)
-		mp := VALUE{
-			v.typ.ptrType(),
-			unsafe.Pointer(&p),
-			flag(Pointer),
+		kind := (*arrayType)(unsafe.Pointer(v.typ)).elem.Kind()
+		if !kind.IsBasic() {
+			a := (ARRAY)(n.Elem())
+			(ARRAY)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+				set(a.index(i), new(kind, e.rnewdeep()))
+				return
+			})
 		}
-		m := (MAP)(mp.Elem())
-		fmt.Println("Map Ptr:", m.ptr)
-		v.ForEach(func(i int, k string, e VALUE) (brake bool) {
-			m.Set(k, e.rnewdeep().Elem())
+	case Map:
+		*(*unsafe.Pointer)(n.ptr) = makemap(v.typ, (MAP)(v).Len(), nil)
+		m := (MAP)(n.Elem())
+		(MAP)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, new(e.rnewdeep()).ptr)
 			return
 		})
-		n.Set(mp)
 	case Pointer:
-		fmt.Println("Ptr Ptr:", n.Elem().ptr)
-		n.Set(v.Elem().rnewdeep())
+		nv := v.Elem().rnewdeep()
+		t := (*ptrType)(unsafe.Pointer(nv.typ)).elem
+		if t.IfaceIndir() || t.Kind() == Map {
+			*(*unsafe.Pointer)(n.ptr) = nv.ptr
+		} else if !t.Kind().IsBasic() {
+			*(*unsafe.Pointer)(&n.ptr) = nv.ptr
+		}
+		//n.Set(v.Elem().rnewdeep())
 	case Slice:
 		l := (*sliceHeader)(v.ptr).Len
 		t := (*sliceType)(unsafe.Pointer(v.typ)).elem
-		p := unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, l), l, l})
-		sp := VALUE{
-			v.typ.ptrType(),
-			unsafe.Pointer(&p),
-			flag(Pointer),
+		*(*unsafe.Pointer)(&n.ptr) = unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, l), l, l})
+		if !(*sliceType)(unsafe.Pointer(v.typ)).elem.Kind().IsBasic() {
+			s := (SLICE)(n.Elem())
+			(SLICE)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+				set(s.index(i), new(e.rnewdeep()))
+				return
+			})
 		}
-		s := (SLICE)(sp.Elem())
-		fmt.Println("Slice Ptr:", s.ptr)
-		v.ForEach(func(i int, k string, e VALUE) (brake bool) {
-			s.index(i).Set(e.rnewdeep().Elem())
-			return
-		})
-		n.Set(sp)
 	case Struct:
-		fmt.Println("Struct Ptr:", n.Elem().ptr)
-		n.Elem().ForEach(func(i int, k string, e VALUE) (brake bool) {
-			e.Set(e.rnewdeep().Elem())
+		s := (STRUCT)(n.Elem())
+		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+			set(s.index(i), new(e.rnewdeep()))
 			return
 		})
 	}
-	fmt.Println("returning:", n.typ, n.Serialize())
+	fmt.Println("creating from:", v.typ, v.Interface(), v.Serialize())
+	fmt.Println("returning:", n.typ, n.Interface(), n.Serialize())
 	return n
 }
 
