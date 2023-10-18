@@ -161,9 +161,9 @@ func TestRnew_(t *testing.T) {
 
 func TestRnewDeep(t *testing.T) {
 	l := []string{
-		//"array_array", "array_map", "array_slice", "array_struct", "array_ptr_string", "map_map",
-		//"struct_any",
-		"array_ptr_any_single",
+		//"array_array", "array_map", "array_slice", "array_struct", "array_ptr_string", "map_map", "struct_any", "array_ptr_any_single", "map_ptr_map_single",
+		//"slice_ptr_array_single",
+		"slice_ptr_array",
 	}
 	v := getTestVars()
 	for _, n := range l {
@@ -197,7 +197,7 @@ func (v VALUE) rnewdeep() VALUE {
 		nk := nt.Kind()
 		if !nk.IsBasic() && (nt.IfaceIndir() || nk == Map || k == Interface) {
 			n = n.Elem()
-		} else if nk == Pointer {
+		} else if nk == Pointer && !nt.elem().IfaceIndir() {
 			n.ptr = *(*unsafe.Pointer)(n.ptr)
 		}
 		return n
@@ -212,7 +212,14 @@ func (v VALUE) rnewdeep() VALUE {
 		case Slice:
 			*(*[24]byte)(i.ptr) = *(*[24]byte)(n.ptr)
 		default:
-			*(*unsafe.Pointer)(i.ptr) = n.ptr
+			if !i.typ.IfaceIndir() {
+				fmt.Println("setting")
+				//os.Exit(1)
+				*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
+			} else {
+				*(*unsafe.Pointer)(i.ptr) = n.ptr
+			}
+			//*(*unsafe.Pointer)(i.ptr) = n.ptr
 		}
 	}
 	switch v.Kind() {
@@ -228,8 +235,16 @@ func (v VALUE) rnewdeep() VALUE {
 	case Map:
 		*(*unsafe.Pointer)(n.ptr) = makemap(v.typ, (MAP)(v).Len(), nil)
 		m := (MAP)(n.Elem())
+		t := (*mapType)(unsafe.Pointer(v.typ)).elem
+		kind := t.Kind()
 		(MAP)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, new(e.rnewdeep()).ptr)
+			p := new(kind, e.rnewdeep()).ptr
+			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
+			/* if kind == Pointer {
+				mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
+			} else {
+				mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
+			} */
 			return
 		})
 	case Pointer:
@@ -245,17 +260,19 @@ func (v VALUE) rnewdeep() VALUE {
 		l := (*sliceHeader)(v.ptr).Len
 		t := (*sliceType)(unsafe.Pointer(v.typ)).elem
 		*(*unsafe.Pointer)(&n.ptr) = unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, l), l, l})
-		if !(*sliceType)(unsafe.Pointer(v.typ)).elem.Kind().IsBasic() {
+		kind := t.Kind()
+		if !kind.IsBasic() {
 			s := (SLICE)(n.Elem())
 			(SLICE)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				set(s.index(i), new(e.rnewdeep()))
+				set(s.index(i), new(kind, e.rnewdeep()))
 				return
 			})
 		}
 	case Struct:
 		s := (STRUCT)(n.Elem())
+		f := (*structType)(unsafe.Pointer(v.typ)).fields
 		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			set(s.index(i), new(e.rnewdeep()))
+			set(s.index(i), new(f[i].typ.Kind(), e.rnewdeep()))
 			return
 		})
 	}
@@ -270,6 +287,7 @@ func TestIndirect(t *testing.T) {
 		val := ValueOf(v)
 		table = append(table, []string{n, val.Kind().String(), val.typ.String(), BOOL(val.typ.IfaceIndir()).String(), BOOL(val.flag&flagIndir != 0).String()})
 	}
+	SortByCol(table, 0)
 	test.PrintTable(table, true)
 }
 

@@ -459,3 +459,9 @@ func (s SLICE) SortFloats() []float64 {
 	sort.Float64s(n)
 	return n
 }
+
+func SortByCol(d [][]string, col int) {
+	sort.Slice(d, func(i, j int) bool {
+		return d[i][col] < d[j][col]
+	})
+}
