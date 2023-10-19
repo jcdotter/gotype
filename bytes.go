@@ -66,8 +66,7 @@ func (b BYTES) Interface() any {
 
 // Value returns gotype BYTES as gotype VALUE
 func (b BYTES) VALUE() VALUE {
-	a := (any)(b)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf([]byte(b))
 }
 
 // Encode returns a gotype encoding of BOOL

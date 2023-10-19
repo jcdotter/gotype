@@ -107,9 +107,8 @@ func (j JSON) Interface() any {
 }
 
 // Value returns gotype JSON as gotype VALUE
-func (j JSON) Value() VALUE {
-	a := (any)(j)
-	return *(*VALUE)(unsafe.Pointer(&a))
+func (j JSON) VALUE() VALUE {
+	return ValueOf([]byte(j))
 }
 
 // Bytes returns gotype JSON as []byte

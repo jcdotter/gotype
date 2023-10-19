@@ -64,6 +64,15 @@ func (d decodex) String() string {
 	return d.v.String()
 }
 
+// Serialize returns serialized string decodex
+func (d decodex) Serialize() string {
+	return MapOf(map[string]any{
+		"kind":  d.k.String(),
+		"bytes": INT(d.b).String(),
+		"value": d.v,
+	}).String()
+}
+
 func (v VALUE) Encode() ENCODING {
 	switch v.KIND() {
 	case Bool:
@@ -136,7 +145,7 @@ func GobDecode(buf []byte, dest any) {
 
 // Encode encodes any value to bytes
 func Encode(a any) ENCODING {
-	return ValueOf(a).Encode()
+	return ValueOfV(a).Encode()
 }
 
 // Decode decodes e to poitner dest and returns
@@ -150,8 +159,8 @@ func (v VALUE) EncodeNum() ENCODING {
 	l := v.typ.size + 1
 	b := make([]byte, l)
 	b[0] = v.typ.Kind().Byte()
-	for i := uintptr(0); i < l-1; i++ {
-		b[i+1] = *(*byte)(offset(v.ptr, i))
+	for i := uintptr(1); i < l; i++ {
+		b[i] = *(*byte)(offset(v.ptr, i-1))
 	}
 	return b
 }
@@ -211,8 +220,12 @@ func (e ENCODING) Decode(dest any) int {
 func decodeValueSet(eVal VALUE, dVal VALUE) {
 	eKind, dKind := eVal.Kind(), dVal.Kind()
 	// check if both are basic kinds
-	if (eKind.IsBasic() && dKind.IsBasic()) || dKind == Interface || dKind == Pointer {
+	if (eKind.IsBasic() && dKind.IsBasic()) || dKind == Interface {
 		dVal.Set(eVal)
+		return
+	}
+	if dKind == Pointer {
+		decodeValueSet(eVal, dVal.Elem())
 		return
 	}
 	switch eKind {
@@ -226,11 +239,8 @@ func decodeValueSet(eVal VALUE, dVal VALUE) {
 				panic("cannot decode to array of differing length")
 			}
 			for i := 0; i < el; i++ {
-				/* fmt.Println("decoding array item") */
 				decodeValueSet(ea.index(i), da.index(i))
 			}
-			/* fmt.Println(da)
-			os.Exit(1) */
 			return
 		case Slice:
 			da := dVal.SLICE()
@@ -254,23 +264,24 @@ func decodeValueSet(eVal VALUE, dVal VALUE) {
 		}
 	case Map:
 		if dKind == Map {
-			/* fmt.Println(dVal.ptr, *(*unsafe.Pointer)(dVal.ptr)) */
 			em, dm := eVal.MAP(), dVal.MAP()
-			/* fmt.Println(dm.ptr, *(*unsafe.Pointer)(dm.ptr))
-			dm.Set("one", "1")
-			fmt.Println(em, dm.Interface()) */
+			t := (*mapType)(unsafe.Pointer(dm.typ)).elem
+			if dm.typ.Kind().IsBasic() {
+				em.ForEach(func(i int, k string, v VALUE) (brake bool) {
+					dm.Set(k, v)
+					return
+				})
+				return
+			}
 			em.ForEach(func(i int, k string, v VALUE) (brake bool) {
-				/* fmt.Printf("decoding map item %#v %#v %#v\n", k, v.Interface(), dm.Interface())
-				os.Exit(1) */
-				dm.Set(k, v)
-				/* fmt.Println(*(*unsafe.Pointer)(dVal.ptr))
-				fmt.Println(*(*unsafe.Pointer)(dm.ptr))
-				//fmt.Println(dm)
-				os.Exit(1) */
+				dv := dm.Index(k)
+				if dv.ptr == nil {
+					dv = t.NewValue().Elem()
+					dm.Set(k, dv)
+				}
+				decodeValueSet(v, dv)
 				return
 			})
-			/* fmt.Println(dm)
-			os.Exit(1) */
 			return
 		}
 	}
@@ -280,15 +291,11 @@ func decodeValueSet(eVal VALUE, dVal VALUE) {
 // destValue validates a pointer dest and
 // return a Value of the underlying destination
 func destValue(dest any) VALUE {
-	v := ValueOf(dest)
+	v := ValueOfV(dest)
 	if v.Kind() != Pointer {
 		panic("dest must be a pointer")
 	}
-	/* v = v.Init().Elem()
-	v.SetIndex(0, map[string]string{"zero": "1"})
-	fmt.Println(v) //*(*[1]map[string]string)(v.ptr))
-	os.Exit(1) */
-	return v.Elem()
+	return v.Elem().SetType()
 }
 
 // Decodex returns the Value and Kind and number of bytes of an encoding
@@ -332,11 +339,11 @@ func (e ENCODING) decodexBool() (d decodex) {
 // the Value of the number and the number of bytes processed
 func (e ENCODING) decodexNum() (d decodex) {
 	d.k = KIND(e[0])
-	d.v = d.k.NewValue()
+	d.v = d.k.NewValue().Elem()
 	d.b = int(d.v.typ.size) + 1
 	e[1:].LenAtLeast(d.b - 1)
 	for i := 1; i < d.b; i++ {
-		*(*byte)(offseti(d.v.ptr, i+1)) = e[i]
+		*(*byte)(offseti(d.v.ptr, i-1)) = e[i]
 	}
 	return
 }
@@ -388,7 +395,7 @@ func (e ENCODING) decodexArray() (d decodex) {
 		eKind = Interface
 	}
 	l, d.b = e.decodeLen(2)
-	s = eKind.NewSlice(l).ARRAY()
+	s = eKind.NewArray(l)
 	for i < l {
 		n := e[d.b:].Decodex()
 		if n.k != eKind && eKind != Interface {

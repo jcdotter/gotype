@@ -56,6 +56,13 @@ func (v VALUE) ARRAY() ARRAY {
 	}
 }
 
+func NewArray(r *rtype, size int) ARRAY {
+	t := reflectType(reflect.ArrayOf(size, toType(r)))
+	b := make([]byte, t.size)
+	p := **(**unsafe.Pointer)(unsafe.Pointer(&b))
+	return ARRAY{t, p, flagIndir | flagAddr | flag(Array)}
+}
+
 // ------------------------------------------------------------ /
 // GOLANG STANDARD IMPLEMENTATIONS
 // implementations of functions natively available for
@@ -170,6 +177,7 @@ func (a ARRAY) SLICE() SLICE {
 		Cap:  l,
 	}
 	a.ptr = unsafe.Pointer(&s)
+	a.flag = flagIndir | flagAddr | flag(Slice)
 	return (SLICE)(a)
 }
 

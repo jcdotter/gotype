@@ -6,9 +6,8 @@
 package gotype
 
 import (
-	"unsafe"
-
 	"github.com/google/uuid"
+	"github.com/oklog/ulid"
 )
 
 // ------------------------------------------------------------ /
@@ -42,6 +41,11 @@ func NewUUID() UUID {
 	return UUID(u)
 }
 
+func NewULID() UUID {
+	u, _ := ulid.New(ulid.Now(), nil)
+	return UUID(u)
+}
+
 // ------------------------------------------------------------ /
 // TYPE CONVERSION FUNCTIONS
 // implementation of functions to convert values to new types
@@ -59,8 +63,7 @@ func (u UUID) Interface() any {
 
 // Value returns gotype UUID as gotype Value
 func (u UUID) VALUE() VALUE {
-	a := (any)(u)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf(u)
 }
 
 // Encode returns a gotype encoding of UUID

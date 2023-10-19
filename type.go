@@ -71,36 +71,27 @@ func reflectType(t reflect.Type) *rtype {
 	return (*rtype)((*VALUE)(unsafe.Pointer(&a)).ptr)
 }
 
-// New returns a new indirect Value of the Type
-func (r *rtype) New(length ...int) VALUE {
+// New returns an empty pointer to of the Type
+func (r *rtype) New() VALUE {
 	if r != nil {
-		t := r.elem()
-		var p unsafe.Pointer
-		switch t.Kind() {
-		case Array:
-			a := (*arrayType)(unsafe.Pointer(r))
-			n := unsafe_NewArray(a.elem, int(a.len))
-			p = unsafe.Pointer(&n)
-		case Map:
-			n := makemap(t, 0, nil)
-			p = unsafe.Pointer(&n)
-		case Pointer:
-			n := unsafe_New(t)
-			p = unsafe.Pointer(&n)
-		case Slice:
-			ln := 0
-			if len(length) > 0 {
-				ln = length[0]
-			}
-			s := (*sliceType)(unsafe.Pointer(t))
-			p = unsafe.Pointer(&sliceHeader{unsafe_NewArray(s.elem, ln), ln, ln})
-		default:
-			p = unsafe_New(t)
-		}
-		return VALUE{t.ptrType(), p, flag(Pointer)}
-		//return FromReflect(reflect.New(toType(r.elem())))
+		return VALUE{r.ptrType(), unsafe_New(r), flag(Pointer)}
 	}
 	panic("call to New on nil type")
+}
+
+// New returns a pointer to a new value of the Type
+func (r *rtype) NewValue() VALUE {
+	n := r.New()
+	switch r.Kind() {
+	case Map:
+		*(*unsafe.Pointer)(n.ptr) = makemap(r, 0, nil)
+	case Pointer:
+		*(*unsafe.Pointer)(n.ptr) = r.elem().NewValue().ptr
+	case Slice:
+		t := (*sliceType)(unsafe.Pointer(r)).elem
+		*(*unsafe.Pointer)(&n.ptr) = unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, 0), 0, 0})
+	}
+	return n
 }
 
 func (r *rtype) ptrType() *rtype {
@@ -459,6 +450,10 @@ func (k KIND) Size() uintptr {
 
 func (k KIND) NewValue() VALUE {
 	return (*VALUE)(unsafe.Pointer(&kindVals[k])).typ.New()
+}
+
+func (k KIND) NewArray(size int) ARRAY {
+	return k.NewSlice(size).ARRAY()
 }
 
 func (k KIND) NewSlice(size int) SLICE {

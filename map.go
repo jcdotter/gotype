@@ -193,15 +193,11 @@ func (m MAP) Set(k string, v any) MAP {
 		return m
 	}
 	etyp := (*mapType)(unsafe.Pointer(m.typ)).elem
-	val := ValueOfV(v)
+	val := ValueOfV(v).SetType()
 	if val.typ != etyp {
 		val = val.convert(etyp)
 	}
-	if !etyp.IfaceIndir() {
-		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&val.ptr))
-	} else {
-		mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, val.ptr)
-	}
+	mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, val.ptr)
 	return m
 }
 

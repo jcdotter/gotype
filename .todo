@@ -1,20 +1,8 @@
 TODO:
-    [ ] Testing:
-        [√] Type conversion - robust
-        [√] Value Set 
-            [√] ...
-            [√] type mismatch
-            [√] embedded values
-        [ ] Value New:
-            [√] started
-            [ ] ...
-            [ ] Deep New
-        [ ] Encoding
-        [ ] ...
-    [√] fix deserializer (quotes still embedded)
+    [ ] add slice list scan
+    [ ] license
+    [ ] readme
     [ ] manage mem leaks from unsafe_New
-    [ ] Add (VALUE).Init() for nil values
-    [ ] Add ULID to UUID
-    [ ] Add slice list scan
-    [ ] Optimize ValueOf, VALUE.Elem(), VALUE.SetType()
-        move away from reflect pkg reliance
+    [ ] mutex on value set
+    [ ] optimize ValueOf, VALUE.Elem(), VALUE.SetType()
+        - move away from reflect pkg reliance

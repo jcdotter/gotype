@@ -134,8 +134,7 @@ func (s STRING) Interface() any {
 
 // VALUE returns gotype SLICE as gotype VALUE
 func (s STRING) VALUE() VALUE {
-	a := (any)(s)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf(string(s))
 }
 
 // Encode returns a gotype encoding of STRING

@@ -88,8 +88,7 @@ func (u UINT) Interface() any {
 
 // Value returns gotype Int as gotype Value
 func (u UINT) VALUE() VALUE {
-	a := (any)(u)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf(uint(u))
 }
 
 // Encode returns a gotype encoding of INT

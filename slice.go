@@ -57,6 +57,10 @@ func (v VALUE) SLICE() SLICE {
 	}
 }
 
+func NewSlice(r *rtype, size int) SLICE {
+	return NewArray(r, size).SLICE()
+}
+
 // ------------------------------------------------------------ /
 // GOLANG STANDARD IMPLEMENTATIONS
 // implementations of functions natively available for
@@ -103,12 +107,6 @@ func (s SLICE) Extend(n int) SLICE {
 		*h = growslice(t.elem, *h, n)
 		h.Cap = h.Len + n
 	}
-	/* if t.elem.Kind().CanNil() {
-		np := t.elem.newPtr()
-		for i := 0; i < n; i++ {
-			*(*unsafe.Pointer)(unsafe.Pointer(uintptr(h.Data) + (uintptr(h.Len)+uintptr(i))*t.elem.size)) = np
-		}
-	} */
 	h.Len += n
 	return s
 }
@@ -180,6 +178,7 @@ func (s SLICE) ARRAY() ARRAY {
 	h := (*sliceHeader)(s.ptr)
 	s.typ = reflectType(reflect.ArrayOf(h.Len, toType((*sliceType)(unsafe.Pointer(s.typ)).elem)))
 	s.ptr = unsafe.Pointer(h.Data)
+	s.flag = flagAddr | flagIndir | flag(Array)
 	return (ARRAY)(s)
 }
 

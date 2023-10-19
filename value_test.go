@@ -2,10 +2,9 @@ package gotype
 
 import (
 	"fmt"
-	"os"
+	"math"
 	"testing"
 	"time"
-	"unsafe"
 
 	test "github.com/jcdotter/gtest"
 )
@@ -20,295 +19,17 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	//m := [][]string{{"0", "1"}, {"0", "1"}}
-	//m := [2][2]string{{"0", "1"}, {"0", "1"}}
-	//m := [1][1]string{{"0"}}
-	//m := struct_struct{string_struct{"1", "1"}, string_struct{"1", "1"}}
-
-	/* m := map[string]map[string]string{
-		"0": {"0": "0", "1": "1"},
-		"1": {"0": "0", "1": "1"},
-	} */
-
-	//s := "1"
-	s := []string{"0", "1"}
-
-	/* m := [2]*string{&s, &s}
-	ov := ValueOf(&m)
-
-	np := ov.New()
-	na := ov.Elem().New()
-
-	i0 := ov.Elem().Index(0).New()
-	*(*unsafe.Pointer)(&i0.ptr) = ov.Elem().Index(0).Elem().New().ptr
-	fmt.Println(i0.typ, i0.Serialize())
-
-	i1 := ov.Elem().Index(1).New()
-	*(*unsafe.Pointer)(&i1.ptr) = ov.Elem().Index(1).Elem().New().ptr
-	fmt.Println(i1.typ, i1.Serialize())
-
-	ap0 := na.Index(0).ptr
-	ap1 := na.Index(1).ptr
-	*(*unsafe.Pointer)(ap0) = i0.ptr
-	*(*unsafe.Pointer)(ap1) = i1.ptr
-	fmt.Println(na.typ, na.Serialize())
-
-	*(*unsafe.Pointer)(&np.ptr) = na.ptr
-	fmt.Println(np.typ, np.Serialize())
-
-	fmt.Println(np.typ, ov.NewDeep()) */
-
-	p := &s
-	pp := &p
-	/* sp := ValueOf(p).NewDeep()
-	spp := ValueOf(&p).NewDeep() */
-	sppp := ValueOf(&pp).NewDeep()
-	/* fmt.Println(sp.typ, sp.Serialize())
-	fmt.Println(spp.typ, spp.Serialize()) */
-	fmt.Println(sppp.typ, sppp.Serialize())
-
-}
-
-func TestNew(t *testing.T) {
-
-	as := [2]string{"0", "1"}
-	asn := ValueOf(as).NewDeep()
-	testSetDeep(asn, false)
-	fmt.Println(asn.typ, asn.Serialize())
-	ap := [2]*string{&as[0], &as[1]}
-	apn := ValueOf(&ap).NewDeep()
-	testSetDeep(apn, false)
-	fmt.Println(apn.typ, apn.Serialize())
-
-	a1s := [1]string{"0"}
-	a1sn := ValueOf(a1s).NewDeep()
-	testSetDeep(a1sn, false)
-	fmt.Println(a1sn.typ, a1sn.Serialize())
-	a1p := [1]*string{&as[0]}
-	a1pn := ValueOf(&a1p).NewDeep()
-	testSetDeep(a1pn, false)
-	fmt.Println(a1pn.typ, a1pn.Serialize())
-
-	ss := []string{"0", "1"}
-	ssn := ValueOf(ss).NewDeep()
-	testSetDeep(ssn, false)
-	fmt.Println(ssn.typ, ssn.Serialize())
-	sp := []*string{&ss[0], &ss[1]}
-	spn := ValueOf(&sp).NewDeep()
-	testSetDeep(spn, false)
-	fmt.Println(spn.typ, spn.Serialize())
-
-	ds := string_struct{"0", "1"}
-	dsn := ValueOf(ds).NewDeep()
-	testSetDeep(dsn, false)
-	fmt.Println(dsn.typ, dsn.Serialize())
-	dp := string_ptr_struct{&ss[0], &ss[1]}
-	dpn := ValueOf(&dp).NewDeep()
-	testSetDeep(dpn, false)
-	fmt.Println(dpn.typ, dpn.Serialize())
-
-	ms := map[string]string{"0": "0", "1": "1"}
-	msn := ValueOf(ms).NewDeep()
-	testSetDeep(msn, false)
-	fmt.Println(msn.Elem().Len(), msn.typ, msn.Serialize())
-	p := ms["0"]
-	mp := map[string]*string{"0": &p, "1": &p}
-	mpn := ValueOf(&mp).NewDeep()
-	testSetDeep(mpn, false)
-	fmt.Println(msn.Elem().Len(), mpn.typ, mpn.Serialize())
-
-	am := [2]map[string]string{{"0": "0", "1": "1"}, {"0": "0", "1": "1"}}
-	amn := ValueOf(am).NewDeep()
-	testSetDeep(amn, false)
-	fmt.Println(amn.typ, amn.Serialize())
-	amp := [2]*map[string]string{&am[0], &am[1]}
-	ampn := ValueOf(&amp).NewDeep()
-	testSetDeep(ampn, false)
-	fmt.Println(ampn.typ, ampn.Serialize())
-
-	a1m := [1]map[string]string{{"0": "0", "1": "1"}}
-	a1mn := ValueOf(a1m).NewDeep()
-	testSetDeep(a1mn, false)
-	fmt.Println(a1mn.typ, a1mn.Serialize())
-	a1mp := [1]*map[string]string{&a1m[0]}
-	a1mpn := ValueOf(&a1mp).NewDeep()
-	testSetDeep(a1mpn, false)
-	fmt.Println(a1mpn.typ, a1mpn.Serialize())
-
-	//os.Exit(1)
-
-	for n, v := range getTestVars() {
-		// slice_ptr_array, array_array_single, map_map
-		//if n == "array_map" {
-		val := ValueOf(v)
-		fmt.Print(n, ":\t")
-		fmt.Print(val.typ, "\t")
-		fmt.Print(val.typ.IfaceIndir(), "\t")
-		fmt.Print(val.NewDeep().Serialize(), "\n")
-		//}
+	v := VALUE{
+		getrtype([]string{}),
+		nil,
+		flag(Slice),
 	}
-	//test.PrintTable(table, true)
-}
+	//v := getrtype([]string{}).New().Elem()
+	fmt.Println(v.ptr)
+	v = v.Init()
+	v.SetIndex(0, "test")
+	fmt.Println(v)
 
-func TestRnew_(t *testing.T) {
-	table := [][]string{{"Name", "Interface", "Json"}}
-	for n, v := range getTestVars() {
-		r := ValueOf(v).rnew()
-		table = append(table, []string{n, fmt.Sprint(r.Interface()), r.Serialize()})
-	}
-	test.PrintTable(table, true)
-}
-
-func TestRnewDeep(t *testing.T) {
-	l := []string{
-		"array_array", "array_map", "array_slice", "array_struct",
-		"array_ptr_string",
-		"map_map", //"struct_any", "array_ptr_any_single",
-		//"map_ptr_map_single",
-		//"slice_ptr_array_single",
-		//"slice_ptr_array",
-	}
-	v := getTestVars()
-	for _, n := range l {
-		r := ValueOf(v[n])
-		fmt.Println()
-		fmt.Println(n, r.typ, r.Serialize())
-		e := r.rnewdeep()
-		fmt.Println("new value:", e.Interface(), e.Serialize())
-	}
-	os.Exit(1)
-	i := 0
-	for n, v := range getTestVars() {
-		i++
-		fmt.Println("num:", i)
-		r := ValueOf(v)
-		fmt.Println()
-		fmt.Println(n, r.typ, r.Serialize())
-		fmt.Println("new value:", r.rnewdeep().Serialize())
-	}
-}
-
-func TestIface(t *testing.T) {
-	i := interface{}(1)
-	v := ValueOf(i)
-	fmt.Println(v.typ, v.typ.IfaceIndir())
-}
-
-func (v VALUE) rnew() VALUE {
-	return VALUE{v.typ.ptrType(), unsafe_New(v.typ), flag(Pointer)}
-}
-
-func (v VALUE) rnewdeep() VALUE {
-	n := v.rnew()
-	new := func(new VALUE, pIndir bool, dIface bool) VALUE {
-		// evaluate new value
-		nt := (*ptrType)(unsafe.Pointer(n.typ)).elem
-		nk := nt.Kind()
-		if !nk.IsBasic() && (nt.IfaceIndir() || nk == Map || dIface) {
-			n = n.Elem()
-		}
-		if pIndir && !nt.IfaceIndir() /* && nt.elem().IfaceIndir() */ {
-			n.ptr = *(*unsafe.Pointer)(n.ptr)
-		}
-		return n
-	}
-	set := func(i VALUE, n VALUE) {
-		// set pointer
-		switch i.Kind() {
-		case Interface:
-			*(*any)(i.ptr) = n.Interface()
-		case Map:
-			*(*unsafe.Pointer)(i.ptr) = n.ptr //*(*unsafe.Pointer)(n.ptr)
-		case Slice:
-			*(*[24]byte)(i.ptr) = *(*[24]byte)(n.ptr)
-		/* case Array:
-		if !i.typ.IfaceIndir() {
-			*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
-		} else {
-			*(*unsafe.Pointer)(i.ptr) = n.ptr
-		} */
-		default:
-			/* if !i.typ.IfaceIndir() {
-				*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
-			} else {
-				*(*unsafe.Pointer)(i.ptr) = n.ptr
-			} */
-			*(*unsafe.Pointer)(i.ptr) = n.ptr
-		}
-	}
-	switch v.Kind() {
-	case Array:
-		kind := (*arrayType)(unsafe.Pointer(v.typ)).elem.Kind()
-		if !kind.IsBasic() {
-			a := (ARRAY)(n.Elem())
-			pIndir := v.typ.IfaceIndir()
-			dIface := kind == Interface
-			(ARRAY)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				set(a.index(i), new(e.rnewdeep(), pIndir, dIface))
-				return
-			})
-		}
-	case Map:
-		*(*unsafe.Pointer)(n.ptr) = makemap(v.typ, (MAP)(v).Len(), nil)
-		m := (MAP)(n.Elem())
-		t := (*mapType)(unsafe.Pointer(v.typ)).elem
-		pIndir := v.typ.IfaceIndir()
-		dIface := t.Kind() == Interface
-		(MAP)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			p := new(e.rnewdeep(), pIndir, dIface).ptr
-			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
-			/* if kind == Pointer {
-				mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
-			} else {
-				mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
-			} */
-			return
-		})
-	case Pointer:
-		nv := v.Elem().rnewdeep()
-		t := (*ptrType)(unsafe.Pointer(nv.typ)).elem
-		if t.IfaceIndir() || t.Kind() == Map {
-			*(*unsafe.Pointer)(n.ptr) = nv.ptr
-		} else if !t.Kind().IsBasic() {
-			*(*unsafe.Pointer)(&n.ptr) = nv.ptr
-		}
-		//n.Set(v.Elem().rnewdeep())
-	case Slice:
-		l := (*sliceHeader)(v.ptr).Len
-		t := (*sliceType)(unsafe.Pointer(v.typ)).elem
-		*(*unsafe.Pointer)(&n.ptr) = unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, l), l, l})
-		kind := t.Kind()
-		if !kind.IsBasic() {
-			s := (SLICE)(n.Elem())
-			pIndir := v.typ.IfaceIndir()
-			dIface := kind == Interface
-			(SLICE)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				set(s.index(i), new(e.rnewdeep(), pIndir, dIface))
-				return
-			})
-		}
-	case Struct:
-		s := (STRUCT)(n.Elem())
-		f := (*structType)(unsafe.Pointer(v.typ)).fields
-		pIndir := v.typ.IfaceIndir()
-		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			set(s.index(i), new(e.rnewdeep(), f[i].typ.Kind() == Interface, pIndir))
-			return
-		})
-	}
-	fmt.Println("creating from:", v.typ, v.Interface(), v.Serialize())
-	fmt.Println("returning:", n.typ, n.Interface(), n.Serialize())
-	return n
-}
-
-func TestIndirect(t *testing.T) {
-	table := [][]string{{"Name", "Kind", "Type", "IfaceIndir", "flagIndir"}}
-	for n, v := range getTestVars() {
-		val := ValueOf(v)
-		table = append(table, []string{n, val.Kind().String(), val.typ.String(), BOOL(val.typ.IfaceIndir()).String(), BOOL(val.flag&flagIndir != 0).String()})
-	}
-	SortByCol(table, 0)
-	test.PrintTable(table, true)
 }
 
 func TestAll(t *testing.T) {
@@ -323,7 +44,9 @@ func TestAll(t *testing.T) {
 	TestValueSetPtrVal(t)
 	TestValueSetUntyped(t)
 	TestValueConversion(t)
-
+	TestValueNewDeep(t)
+	TestEncodeBasic(t)
+	TestEncodeComplex(t)
 }
 
 func TestValueOf(t *testing.T) {
@@ -332,6 +55,16 @@ func TestValueOf(t *testing.T) {
 	for n, v := range getTestVars() {
 		gt.Equal(ValueOf(v).Interface(), v, n)
 	}
+}
+
+func TestIndirect(t *testing.T) {
+	table := [][]string{{"Name", "Kind", "Type", "IfaceIndir", "flagIndir"}}
+	for n, v := range getTestVars() {
+		val := ValueOf(v)
+		table = append(table, []string{n, val.Kind().String(), val.typ.String(), BOOL(val.typ.IfaceIndir()).String(), BOOL(val.flag&flagIndir != 0).String()})
+	}
+	SortByCol(table, 0)
+	test.PrintTable(table, true)
 }
 
 func TestValueNew(t *testing.T) {
@@ -353,16 +86,11 @@ func TestValueNew(t *testing.T) {
 	gt.Equal(0, ValueOf(i).New().Elem().Interface(), "int")
 	gt.Equal("", ValueOf(s).New().Elem().Interface(), "string")
 	gt.Equal([2]string{"", ""}, ValueOf(a).New().Elem().Interface(), "array")
-	gt.Equal([]string{}, ValueOf(l).New().Elem().Interface(), "slice")
-	gt.Equal(map[string]string{}, ValueOf(m).New().Elem().Interface(), "map")
+	gt.Equal([]string(nil), ValueOf(l).New().Elem().Interface(), "slice")
+	gt.Equal(map[string]string(nil), ValueOf(m).New().Elem().Interface(), "map")
 	gt.Equal(string_struct{}, ValueOf(d).New().Elem().Interface(), "struct")
 	gt.Equal([1]string{""}, ValueOf(a1).New().Elem().Interface(), "array(1)")
 	gt.Equal(string_struct_single{}, ValueOf(d1).New().Elem().Interface(), "struct(1)")
-
-	gt.Equal(b, ValueOf(&b).New().Elem().Set(b).Interface(), "bool")
-	gt.Equal(i, ValueOf(&i).New().Elem().Set(i).Interface(), "int")
-	gt.Equal(s, ValueOf(&s).New().Elem().Set(s).Interface(), "string")
-	gt.Equal(a, ValueOf(a).New().Elem().Set(a).Interface(), "array")
 
 }
 
@@ -486,12 +214,12 @@ func TestValueSetTyped(t *testing.T) {
 	gt.Equal(b, ValueOf(vars["bool"]).Set(b).Interface(), "bool", "bool")
 	gt.Equal(i, ValueOf(vars["int"]).Set(i).Interface(), "int", "int")
 	gt.Equal(s, ValueOf(vars["string"]).Set(s).Interface(), "string", "string")
-	gt.Equal(a, ValueOf(vars["array"]).Set(a).Interface(), "array", "array")
-	gt.Equal(l, ValueOf(vars["slice"]).Set(l).Interface(), "slice", "slice")
-	gt.Equal(m, ValueOf(vars["map"]).Set(m).Interface(), "map", "map")
-	gt.Equal(d, ValueOf(vars["struct"]).Set(d).Interface(), "struct", "struct")
-	gt.Equal(a1, ValueOf(vars["array_string_single"]).Set(a1).Interface(), "array(1)", "array(1)")
-	gt.Equal(d1, ValueOf(vars["struct_string_single"]).Set(d1).Interface(), "struct(1)", "struct(1)")
+	gt.Equal(a, ValueOf(vars["[2]string"]).Set(a).Interface(), "array", "array")
+	gt.Equal(l, ValueOf(vars["[]string{2}"]).Set(l).Interface(), "slice", "slice")
+	gt.Equal(m, ValueOf(vars["map[string]string{2}"]).Set(m).Interface(), "map", "map")
+	gt.Equal(d, ValueOf(vars["struct(string){2}"]).Set(d).Interface(), "struct", "struct")
+	gt.Equal(a1, ValueOf(vars["[1]string"]).Set(a1).Interface(), "array(1)", "array(1)")
+	gt.Equal(d1, ValueOf(vars["struct(string){1}"]).Set(d1).Interface(), "struct(1)", "struct(1)")
 
 }
 
@@ -511,15 +239,15 @@ func TestValueSetPtrPtr(t *testing.T) {
 		d1 = string_struct_single{"updated"}
 	)
 
-	gt.Equal(b, ValueOf(vars["ptr_bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
-	gt.Equal(i, ValueOf(vars["ptr_int"]).Set(&i).Elem().Interface(), "*int", "*int")
-	gt.Equal(s, ValueOf(vars["ptr_string"]).Set(&s).Elem().Interface(), "*string", "*string")
-	gt.Equal(a, ValueOf(vars["ptr_array"]).Set(&a).Elem().Interface(), "*array", "*array")
-	gt.Equal(l, ValueOf(vars["ptr_slice"]).Set(&l).Elem().Interface(), "*slice", "*slice")
-	gt.Equal(m, ValueOf(vars["ptr_map"]).Set(&m).Elem().Interface(), "*map", "*map")
-	gt.Equal(d, ValueOf(vars["ptr_struct"]).Set(&d).Elem().Interface(), "*struct", "*struct")
-	gt.Equal(a1, ValueOf(vars["ptr_array_single"]).Set(&a1).Elem().Interface(), "*array(1)", "*array(1)")
-	gt.Equal(d1, ValueOf(vars["ptr_struct_single"]).Set(&d1).Elem().Interface(), "*struct(1)", "*struct(1)")
+	gt.Equal(b, ValueOf(vars["*bool"]).Set(&b).Elem().Interface(), "*bool", "*bool")
+	gt.Equal(i, ValueOf(vars["*int"]).Set(&i).Elem().Interface(), "*int", "*int")
+	gt.Equal(s, ValueOf(vars["*string"]).Set(&s).Elem().Interface(), "*string", "*string")
+	gt.Equal(a, ValueOf(vars["*[2]string"]).Set(&a).Elem().Interface(), "*array", "*array")
+	gt.Equal(l, ValueOf(vars["*[]string{2}"]).Set(&l).Elem().Interface(), "*slice", "*slice")
+	gt.Equal(m, ValueOf(vars["*map[string]string{2}"]).Set(&m).Elem().Interface(), "*map", "*map")
+	gt.Equal(d, ValueOf(vars["*struct(string){2}"]).Set(&d).Elem().Interface(), "*struct", "*struct")
+	gt.Equal(a1, ValueOf(vars["*[1]string"]).Set(&a1).Elem().Interface(), "*array(1)", "*array(1)")
+	gt.Equal(d1, ValueOf(vars["*struct(string){1}"]).Set(&d1).Elem().Interface(), "*struct(1)", "*struct(1)")
 }
 
 func TestValueSetPtrVal(t *testing.T) {
@@ -538,15 +266,15 @@ func TestValueSetPtrVal(t *testing.T) {
 		d1 = string_struct_single{"updated"}
 	)
 
-	gt.Equal(b, ValueOf(vars["ptr_bool"]).Set(b).Elem().Interface(), "*bool", "bool")
-	gt.Equal(i, ValueOf(vars["ptr_int"]).Set(i).Elem().Interface(), "*int", "int")
-	gt.Equal(s, ValueOf(vars["ptr_string"]).Set(s).Elem().Interface(), "*string", "string")
-	gt.Equal(a, ValueOf(vars["ptr_array"]).Set(a).Elem().Interface(), "*array", "array")
-	gt.Equal(l, ValueOf(vars["ptr_slice"]).Set(l).Elem().Interface(), "*slice", "slice")
-	gt.Equal(m, ValueOf(vars["ptr_map"]).Set(m).Elem().Interface(), "*map", "map")
-	gt.Equal(d, ValueOf(vars["ptr_struct"]).Set(d).Elem().Interface(), "*struct", "struct")
-	gt.Equal(a1, ValueOf(vars["ptr_array_single"]).Set(a1).Elem().Interface(), "*array(1)", "array(1)")
-	gt.Equal(d1, ValueOf(vars["ptr_struct_single"]).Set(d1).Elem().Interface(), "*struct(1)", "struct(1)")
+	gt.Equal(b, ValueOf(vars["*bool"]).Set(b).Elem().Interface(), "*bool", "bool")
+	gt.Equal(i, ValueOf(vars["*int"]).Set(i).Elem().Interface(), "*int", "int")
+	gt.Equal(s, ValueOf(vars["*string"]).Set(s).Elem().Interface(), "*string", "string")
+	gt.Equal(a, ValueOf(vars["*[2]string"]).Set(a).Elem().Interface(), "*array", "array")
+	gt.Equal(l, ValueOf(vars["*[]string{2}"]).Set(l).Elem().Interface(), "*slice", "slice")
+	gt.Equal(m, ValueOf(vars["*map[string]string{2}"]).Set(m).Elem().Interface(), "*map", "map")
+	gt.Equal(d, ValueOf(vars["*struct(string){2}"]).Set(d).Elem().Interface(), "*struct", "struct")
+	gt.Equal(a1, ValueOf(vars["*[1]string"]).Set(a1).Elem().Interface(), "*array(1)", "array(1)")
+	gt.Equal(d1, ValueOf(vars["*struct(string){1}"]).Set(d1).Elem().Interface(), "*struct(1)", "struct(1)")
 
 }
 
@@ -1086,4 +814,196 @@ func TestValueConversion(t *testing.T) {
 	ValueOf(_struct).STRUCT().Scan(test_struct)
 	gt.Equal(_struct, *test_struct, "struct", "STRUCT().Scan(struct)")
 
+}
+
+func TestValueNewDeep(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).NewDeep().Set()"
+	// l is a list of test var keys (or the first chars of the key)
+	l := []string{}
+	v := getTestVars()
+	for n := range v {
+		// get newly created test vars to avoid preset pointers
+		v := createTestVars(0 == 1, 0*1, "false", n)[n]
+		// filter for test vars in l
+		var proc bool
+		if len(l) == 0 {
+			proc = true
+		} else {
+			for _, a := range l {
+				ln := int(math.Min(float64(len(a)), float64(len(n))))
+				if n[:ln] == a {
+					proc = true
+					break
+				}
+			}
+		}
+		// run test if in filter
+		if proc {
+			r := ValueOf(v)
+			nv := r.NewDeep()
+			testSetDeep(nv, false)
+			gt.Equal("true", testGetDeep(nv), n)
+		}
+	}
+}
+
+func TestEncodeBasic(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing Encode(%s).Bytes()"
+	var (
+		b  = true
+		i  = 1
+		f  = 1.0
+		s  = "1"
+		a  = [2]string{"0", "1"}
+		l  = []string{"0", "1"}
+		m  = map[string]string{"0": "0", "1": "1"}
+		d  = string_struct{"0", "1"}
+		a1 = [1]string{"0"}
+		l1 = []string{"0"}
+		d1 = string_struct_single{"0"}
+
+		bEnc  = Encode(b)
+		iEnc  = Encode(i)
+		fEnc  = Encode(f)
+		sEnc  = Encode(s)
+		aEnc  = Encode(a)
+		lEnc  = Encode(l)
+		mEnc  = Encode(m)
+		dEnc  = Encode(d)
+		a1Enc = Encode(a1)
+		l1Enc = Encode(l1)
+		d1Enc = Encode(d1)
+
+		bDec  = bEnc.Decodex()
+		iDec  = iEnc.Decodex()
+		fDec  = fEnc.Decodex()
+		sDec  = sEnc.Decodex()
+		aDec  = aEnc.Decodex()
+		lDec  = lEnc.Decodex()
+		mDec  = mEnc.Decodex()
+		dDec  = dEnc.Decodex()
+		a1Dec = a1Enc.Decodex()
+		l1Dec = l1Enc.Decodex()
+		d1Dec = d1Enc.Decodex()
+
+		bBytes  = []byte{1, 1}
+		iBytes  = []byte{2, 1, 0, 0, 0, 0, 0, 0, 0}
+		fBytes  = []byte{14, 0, 0, 0, 0, 0, 0, 240, 63}
+		sBytes  = []byte{24, 8, 1, 49}
+		aBytes  = []byte{17, 24, 8, 2, 24, 8, 1, 48, 24, 8, 1, 49}
+		lBytes  = []byte{23, 24, 8, 2, 24, 8, 1, 48, 24, 8, 1, 49}
+		mBytes  = []byte{21, 24, 24, 8, 2, 24, 8, 1, 48, 24, 8, 1, 48, 24, 8, 1, 49, 24, 8, 1, 49}
+		dBytes  = []byte{25, 8, 2, 24, 8, 1, 48, 24, 8, 1, 49}
+		a1Bytes = []byte{17, 24, 8, 1, 24, 8, 1, 48}
+		l1Bytes = []byte{23, 24, 8, 1, 24, 8, 1, 48}
+		d1Bytes = []byte{25, 8, 1, 24, 8, 1, 48}
+
+		bDecVal  = decodex{1, 2, ValueOf(b)}
+		iDecVal  = decodex{2, 9, ValueOf(i)}
+		fDecVal  = decodex{14, 9, ValueOf(f)}
+		sDecVal  = decodex{24, 4, ValueOf(s)}
+		aDecVal  = decodex{17, 12, ValueOf(a)}
+		lDecVal  = decodex{23, 12, ValueOf(l)}
+		mDecVal  = decodex{21, 21, ValueOf(m)}
+		dDecVal  = decodex{25, 11, ValueOf(l)}
+		a1DecVal = decodex{17, 8, ValueOf(a1)}
+		l1DecVal = decodex{23, 8, ValueOf(l1)}
+		d1DecVal = decodex{25, 7, ValueOf(l1)}
+	)
+
+	gt.Equal(bBytes, bEnc.Bytes(), "bool")
+	gt.Equal(iBytes, iEnc.Bytes(), "int")
+	gt.Equal(fBytes, fEnc.Bytes(), "float")
+	gt.Equal(sBytes, sEnc.Bytes(), "string")
+	gt.Equal(aBytes, aEnc.Bytes(), "array")
+	gt.Equal(lBytes, lEnc.Bytes(), "slice")
+	gt.Equal(mBytes, mEnc.Bytes(), "map")
+	gt.Equal(dBytes, dEnc.Bytes(), "struct")
+	gt.Equal(a1Bytes, a1Enc.Bytes(), "array1")
+	gt.Equal(l1Bytes, l1Enc.Bytes(), "slice1")
+	gt.Equal(d1Bytes, d1Enc.Bytes(), "struct1")
+
+	gt.Msg = "Testing Encode(%s).Decodex()"
+	gt.Equal(bDecVal.Serialize(), bDec.Serialize(), "bool")
+	gt.Equal(iDecVal.Serialize(), iDec.Serialize(), "int")
+	gt.Equal(fDecVal.Serialize(), fDec.Serialize(), "float")
+	gt.Equal(sDecVal.Serialize(), sDec.Serialize(), "string")
+	gt.Equal(aDecVal.Serialize(), aDec.Serialize(), "array")
+	gt.Equal(lDecVal.Serialize(), lDec.Serialize(), "slice")
+	gt.Equal(mDecVal.Serialize(), mDec.Serialize(), "map")
+	gt.Equal(dDecVal.Serialize(), dDec.Serialize(), "struct")
+	gt.Equal(a1DecVal.Serialize(), a1Dec.Serialize(), "array1")
+	gt.Equal(l1DecVal.Serialize(), l1Dec.Serialize(), "slice1")
+	gt.Equal(d1DecVal.Serialize(), d1Dec.Serialize(), "struct1")
+
+	gt.Msg = "Testing Decode(Encode(%[1]s), *%[1]s)"
+	var (
+		bOut  = ValueOf(b).NewDeep()
+		iOut  = ValueOf(i).NewDeep()
+		fOut  = ValueOf(f).NewDeep()
+		sOut  = ValueOf(s).NewDeep()
+		aOut  = ValueOf(a).NewDeep()
+		lOut  = ValueOf(l).NewDeep()
+		mOut  = ValueOf(m).NewDeep()
+		dOut  = ValueOf(d).NewDeep()
+		a1Out = ValueOf(a1).NewDeep()
+		d1Out = ValueOf(d1).NewDeep()
+	)
+
+	bEnc.Decode(bOut)
+	iEnc.Decode(iOut)
+	fEnc.Decode(fOut)
+	sEnc.Decode(sOut)
+	aEnc.Decode(aOut)
+	lEnc.Decode(lOut)
+	mEnc.Decode(mOut)
+	dEnc.Decode(dOut)
+	a1Enc.Decode(a1Out)
+	l1Enc.Decode(d1Out)
+
+	gt.Equal(b, bOut.Elem().Interface(), bOut.Elem().typ)
+	gt.Equal(i, iOut.Elem().Interface(), iOut.Elem().typ)
+	gt.Equal(f, fOut.Elem().Interface(), fOut.Elem().typ)
+	gt.Equal(s, sOut.Elem().Interface(), sOut.Elem().typ)
+	gt.Equal(a, aOut.Elem().Interface(), aOut.Elem().typ)
+	gt.Equal(l, lOut.Elem().Interface(), lOut.Elem().typ)
+	gt.Equal(m, mOut.Elem().Interface(), mOut.Elem().typ)
+	gt.Equal(d, dOut.Elem().Interface(), dOut.Elem().typ)
+	gt.Equal(a1, a1Out.Elem().Interface(), a1Out.Elem().typ)
+	gt.Equal(d1, d1Out.Elem().Interface(), d1Out.Elem().typ)
+
+}
+
+func TestEncodeComplex(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing Decode(Encode(%[1]s), *%[1]s)"
+	// l is a list of test var keys (or the first chars of the key)
+	l := []string{}
+	vars := getTestVars()
+	for n, v := range vars {
+		// filter for test vars in l
+		var proc bool
+		if len(l) == 0 {
+			proc = true
+		} else {
+			for _, a := range l {
+				ln := int(math.Min(float64(len(a)), float64(len(n))))
+				if n[:ln] == a {
+					proc = true
+					break
+				}
+			}
+		}
+		// run test if in filter
+		if proc {
+			sv := ValueOf(v)
+			testSetDeep(sv, false)
+			e := Encode(sv)
+			d := sv.NewDeep()
+			e.Decode(d)
+			gt.Equal("true", testGetDeep(d), n)
+		}
+	}
 }

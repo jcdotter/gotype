@@ -8,7 +8,6 @@ package gotype
 import (
 	"math"
 	"time"
-	"unsafe"
 )
 
 // ------------------------------------------------------------ /
@@ -85,8 +84,7 @@ func (t TIME) Interface() any {
 
 // VALUE returns gotype TIME as gotype VALUE
 func (t TIME) VALUE() VALUE {
-	a := (any)(t)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf(t)
 }
 
 // Encode returns a gotype encoding of TIME

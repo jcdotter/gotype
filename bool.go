@@ -5,10 +5,6 @@
 
 package gotype
 
-import (
-	"unsafe"
-)
-
 // ------------------------------------------------------------ /
 // GOTYPE CUSTOM TYPE IMPLEMENTATION
 // implementation of custom type of bool
@@ -95,8 +91,7 @@ func (b BOOL) Interface() any {
 
 // Value returns gotype BOOL as gotype Value
 func (b BOOL) VALUE() VALUE {
-	a := (any)(b)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf(bool(b))
 }
 
 // Encode returns a gotype encoding of BOOL

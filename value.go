@@ -6,7 +6,6 @@
 package gotype
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 	"unsafe"
@@ -45,6 +44,17 @@ func (v VALUE) Reflect() reflect.Value {
 	return *(*reflect.Value)(unsafe.Pointer(&v))
 }
 
+func (v VALUE) Init() VALUE {
+	if v.ptr == nil {
+		return v.typ.NewValue().Elem()
+	}
+	k := v.Kind()
+	if (k == Map || k == Slice || k == Pointer) && *(*unsafe.Pointer)(v.ptr) == nil {
+		*(*unsafe.Pointer)(v.ptr) = *(*unsafe.Pointer)(v.typ.NewValue().Elem().ptr)
+	}
+	return v
+}
+
 // ------------------------------------------------------------ /
 // VALUE INITIALIZATION
 // generates new mem address for VALUE data type when VALUE is nil
@@ -79,104 +89,69 @@ func (v VALUE) New(init ...bool) VALUE {
 // with matching number of elements and no nil spaces
 func (v VALUE) NewDeep() VALUE {
 	v = v.SetType()
-	var n VALUE
-
-	set := func(ind bool, i VALUE, n VALUE) {
-		switch i.Kind() {
-		/* case Array:
-			if i.Len() == 1 {
-				*(*unsafe.Pointer)(i.ptr) = n.ptr
-			} else {
-				*(*unsafe.Pointer)(&i.ptr) = *(*unsafe.Pointer)(n.ptr)
-			}
-		case Pointer:
-			*(*unsafe.Pointer)(i.ptr) = n.ptr */
-		case Interface:
-			*(*any)(i.ptr) = n.Elem().Interface()
-		default:
-			var p unsafe.Pointer
-			k := i.typ.Kind()
-			if k == Map {
-				p = *(*unsafe.Pointer)(n.ptr)
-			} else {
-				p = n.ptr
-			}
-			/* if ind {
-				*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
-			} else {
-				fmt.Println("setting")
-				*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr) //unsafe.Pointer(&n.ptr)
-			} */
-			/* } else  */
-			if /* ind && */ !i.typ.IfaceIndir() {
-				//fmt.Println("setting", i.typ)
-				*(*unsafe.Pointer)(i.ptr) = p
-				//i.Elem().Set(n.Elem()) // elem not set, nil pointer
-				/* } else if !i.typ.IfaceIndir() {
-				*(*unsafe.Pointer)(i.ptr) = unsafe.Pointer(&n.ptr)
-				 */
-			} else {
-				*(*unsafe.Pointer)(&i.ptr) = p
-				//i.Set(n.Elem()) // elem not set, nil pointer
-			}
+	n := v.New()
+	indir := func(t *rtype) bool {
+		k := t.Kind()
+		return k == Array || k == Struct
+	}
+	set := func(e VALUE, p unsafe.Pointer, t *rtype) {
+		if e.ptr == nil {
+			return
+		}
+		nv := e.NewDeep().Elem()
+		kind := t.Kind()
+		if kind == Interface {
+			*(*any)(p) = nv.Interface()
+		} else if !indir(e.typ) {
+			typedmemmove(e.typ, p, nv.ptr)
+		} else {
+			*(*unsafe.Pointer)(p) = nv.ptr
 		}
 	}
 	switch v.Kind() {
 	case Array:
-		//fmt.Println(v.typ.IfaceIndir())
-		n = v.typ.New()
-		if !(*arrayType)(unsafe.Pointer(v.typ)).elem.Kind().IsBasic() {
-			a := n.Elem().ARRAY()
+		t := (*arrayType)(unsafe.Pointer(v.typ)).elem
+		if !t.Kind().IsBasic() {
+			a := (ARRAY)(n.Elem())
 			(ARRAY)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				//fmt.Println(e.NewDeep())
-				set(v.typ.IfaceIndir(), a.index(i), e.NewDeep())
+				set(e, offset(a.ptr, uintptr(i)*t.size), t)
 				return
 			})
 		}
 	case Map:
-		n = v.typ.New()
-		m := n.Elem().MAP()
+		*(*unsafe.Pointer)(n.ptr) = makemap(v.typ, (MAP)(v).Len(), nil)
+		m := (MAP)(n.Elem())
 		(MAP)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			n := e.NewDeep()
-			if !n.typ.IfaceIndir() {
-				m.Set(k, n)
-			} else {
-				m.Set(k, n.Elem())
+			if e.ptr == nil {
+				return
 			}
+			m.Set(k, e.NewDeep().Elem())
 			return
 		})
 	case Pointer:
-		n = v.typ.New()
-		//k := v.typ.elem().Kind()
-		//if k == Pointer {
-		if n.typ.IfaceIndir() {
-			*(*unsafe.Pointer)(n.ptr) = v.Elem().NewDeep().ptr
-		} else /* if !k.IsBasic() */ {
-			*(*unsafe.Pointer)(&n.ptr) = v.Elem().NewDeep().ptr
+		e := v.Elem()
+		if e.ptr != nil {
+			*(*unsafe.Pointer)(n.ptr) = e.NewDeep().ptr
 		}
 	case Slice:
-		n = v.typ.New((SLICE)(v).Len())
-		s := n.Elem().SLICE()
-		if !(*sliceType)(unsafe.Pointer(v.typ)).elem.Kind().IsBasic() {
+		l := (*sliceHeader)(v.ptr).Len
+		t := (*sliceType)(unsafe.Pointer(v.typ)).elem
+		*(*unsafe.Pointer)(&n.ptr) = unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, l), l, l})
+		if !t.Kind().IsBasic() {
+			s := (SLICE)(n.Elem())
 			(SLICE)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				set(v.typ.IfaceIndir(), s.index(i), e.NewDeep())
+				set(e, offset((*sliceHeader)(s.ptr).Data, uintptr(i)*t.size), t)
 				return
 			})
 		}
 	case Struct:
-		n = v.typ.New()
-		s := n.Elem().STRUCT()
+		s := (STRUCT)(n.Elem())
+		f := (*structType)(unsafe.Pointer(v.typ)).fields
 		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			set(v.typ.IfaceIndir(), s.index(i), e.NewDeep())
+			set(e, offset(s.ptr, f[i].offset), f[i].typ)
 			return
 		})
-	default:
-		n = v.typ.New()
 	}
-	/* fmt.Println()
-	fmt.Print("returning: ", n.typ, " ")
-	fmt.Printf("%#v ", n.Interface())
-	fmt.Println(n.Serialize()) */
 	return n
 }
 
@@ -209,6 +184,16 @@ func (v VALUE) Pointer() unsafe.Pointer {
 		return *(*unsafe.Pointer)(v.ptr)
 	}
 	return v.ptr
+}
+
+// PointerTo returns a pointer to the underlying value,
+// if the value is a string, returns *string as VALUE
+func (v VALUE) PointerTo() VALUE {
+	return VALUE{
+		v.typ.ptrType(),
+		unsafe.Pointer(&v.ptr),
+		flag(Pointer),
+	}
 }
 
 // Uintptr returns the uintptr representation of
@@ -385,9 +370,6 @@ func (v VALUE) setMatched(n VALUE) VALUE {
 	case Map: // hmap header size
 		*(*[48]byte)(v.Pointer()) = *(*[48]byte)(n.Pointer())
 	case Pointer:
-		//v.Elem().setMatched(n.Elem())
-		fmt.Printf("set pointer: %s >> %s\n", v, n)
-		//*(*unsafe.Pointer)(&v.ptr) = n.ptr
 		*(*unsafe.Pointer)(&v.ptr) = n.ptr
 	case Slice: // slice header size
 		*(*[24]byte)(v.ptr) = *(*[24]byte)(n.ptr)
@@ -542,14 +524,23 @@ func (v VALUE) Convert(a any) any {
 
 func (v VALUE) convert(typ *rtype) VALUE {
 	v = v.SetType()
-	if v.typ == typ {
+	vk, tk := v.typ.KIND(), typ.Kind()
+	switch {
+	case v.typ == typ:
 		return v
-	}
-	if v.Kind() == Pointer && v.typ.elem() == typ {
+	case vk == Pointer && v.typ.elem() == typ:
 		return v.Elem()
+	case tk == Pointer && typ.elem() == v.typ:
+		return VALUE{
+			typ,
+			unsafe.Pointer(&v.ptr),
+			v.flag&(flagIndir|flagAddr) | flag(Pointer),
+		}
+	case vk.IsBasic() && tk.IsBasic():
+		return ValueOf(v.Cast(tk))
+	default:
+		return typ.New().Elem().Set(v)
 	}
-	fmt.Println("setting convert:", v.typ, typ)
-	return typ.New().Elem().Set(v)
 }
 
 func (v VALUE) Serialize() string {
@@ -617,6 +608,9 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	case Slice:
 		return (SLICE)(v).Serialize(ancestry...), false
 	case Struct:
+		if v.typ == getrtype(VALUE{}) {
+			return v.Interface().(VALUE).serialSafe(ancestry...)
+		}
 		return (STRUCT)(v).Serialize(ancestry...), false
 	default:
 		return v.Serialize(), false

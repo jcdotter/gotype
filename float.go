@@ -88,8 +88,7 @@ func (f FLOAT) Interface() any {
 
 // VALUE returns gotype Float as gotype VALUE
 func (f FLOAT) VALUE() VALUE {
-	a := (any)(f)
-	return *(*VALUE)(unsafe.Pointer(&a))
+	return ValueOf(float64(f))
 }
 
 // Encode returns a gotype encoding of FLOAT
