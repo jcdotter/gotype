@@ -12,6 +12,7 @@ TODO:
         [ ] Encoding
         [ ] ...
     [√] fix deserializer (quotes still embedded)
+    [ ] manage mem leaks from unsafe_New
     [ ] Add (VALUE).Init() for nil values
     [ ] Add ULID to UUID
     [ ] Add slice list scan

@@ -855,35 +855,36 @@ func testSetDeep(v VALUE, embedded bool) {
 	case Pointer, Interface:
 		testSetDeep(v.Elem(), true)
 	case Array, Slice, Map, Struct:
+		i := v.Len() - 1
 		if !embedded {
-			testSetDeep(v.Index(0), true)
-		} else if testGetDeep(v.Index(0)) == "true" {
+			testSetDeep(v.Index(i), true)
+		} else if testGetDeep(v.Index(i)) == "true" {
 			panic("value already set")
 		} else {
 			switch v.Kind() {
 			case Array:
 				if _, is := v.Interface().([2]string); is {
-					v.Set([2]string{"true", "false"})
+					v.Set([2]string{"false", "true"})
 				} else {
-					testSetDeep(v.Index(0), true)
+					testSetDeep(v.Index(i), true)
 				}
 			case Slice:
 				if _, is := v.Interface().([]string); is && v.Len() == 2 {
-					v.Set([]string{"true", "false"})
+					v.Set([]string{"false", "true"})
 				} else {
-					testSetDeep(v.Index(0), true)
+					testSetDeep(v.Index(i), true)
 				}
 			case Map:
 				if _, is := v.Interface().(map[string]string); is && v.Len() == 2 {
-					v.Set(map[string]string{"0": "true", "1": "false"})
+					v.Set(map[string]string{"0": "false", "1": "true"})
 				} else {
-					testSetDeep(v.Index(0), true)
+					testSetDeep(v.Index(i), true)
 				}
 			case Struct:
 				if _, is := v.Interface().(string_struct); is {
-					v.Set(string_struct{"true", "false"})
+					v.Set(string_struct{"false", "true"})
 				} else {
-					testSetDeep(v.Index(0), true)
+					testSetDeep(v.Index(i), true)
 				}
 			}
 		}
@@ -911,7 +912,7 @@ func testGetDeepValue(v VALUE) VALUE {
 	case Pointer, Interface:
 		return testGetDeepValue(v.Elem())
 	case Array, Slice, Map, Struct:
-		return testGetDeepValue(v.Index(0))
+		return testGetDeepValue(v.Index(v.Len() - 1))
 	case Bool, String, Int:
 		return v
 	}

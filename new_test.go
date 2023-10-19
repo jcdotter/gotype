@@ -26,7 +26,7 @@ func TestVnew(t *testing.T) {
 		"array_array_single", "array_map_single", "array_slice_single", "array_struct_single", "array_any_single",
 		"array_ptr_bool_single", "array_ptr_int_single", "array_ptr_string_single",
 		"array_ptr_array_single", "array_ptr_map_single", "array_ptr_slice_single", "array_ptr_struct_single", */
-		"[2]*[1]string",
+		"struct",
 	}
 	v := getTestVars()
 	for n, v := range v {
@@ -48,6 +48,8 @@ func TestVnew(t *testing.T) {
 			fmt.Println(n, r.Serialize())
 			e := r.vNew()
 			fmt.Println("new value:", e.Interface(), e.Serialize())
+			testSetDeep(e, false)
+			fmt.Println("updated value:", e.Interface(), e.Serialize())
 		}
 	}
 
@@ -64,28 +66,23 @@ func TestVnew(t *testing.T) {
 }
 
 func (v VALUE) vNew() VALUE {
-	fmt.Println("create new:", v.typ)
 	n := v.rnew()
 	indir := func(t *rtype) bool {
 		k := t.Kind()
 		return k == Array || k == Struct
 	}
-	set := func(elem VALUE, ptr unsafe.Pointer, typ *rtype) {
-		elem.typ = typ
-		nv := elem.vNew().Elem()
-		kind := typ.Kind()
+	set := func(e VALUE, p unsafe.Pointer, t *rtype) {
+		if e.ptr == nil {
+			return
+		}
+		nv := e.vNew().Elem()
+		kind := t.Kind()
 		if kind == Interface {
-			*(*any)(ptr) = nv.Interface()
-		} else if !indir(elem.typ) {
-			/* if elem.typ.Kind() == Pointer && elem.typ.elem().Kind() == Array {
-				fmt.Println("check")
-				*(*unsafe.Pointer)(ptr) = *(*unsafe.Pointer)(nv.ptr)
-				//typedmemmove(elem.typ, ptr, unsafe.Pointer(&nv.ptr))
-				return
-			} */
-			typedmemmove(elem.typ, ptr, nv.ptr)
+			*(*any)(p) = nv.Interface()
+		} else if !indir(e.typ) {
+			typedmemmove(e.typ, p, nv.ptr)
 		} else {
-			*(*unsafe.Pointer)(ptr) = nv.ptr
+			*(*unsafe.Pointer)(p) = nv.ptr
 		}
 	}
 	switch v.Kind() {
@@ -95,7 +92,6 @@ func (v VALUE) vNew() VALUE {
 			a := (ARRAY)(n.Elem())
 			(ARRAY)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
 				set(e, offset(a.ptr, uintptr(i)*t.size), t)
-				fmt.Println("set elem:", i)
 				return
 			})
 		}
@@ -108,8 +104,10 @@ func (v VALUE) vNew() VALUE {
 			return
 		})
 	case Pointer:
-		fmt.Println("drill ptr:", v.typ.elem(), v.Elem().typ)
-		*(*unsafe.Pointer)(n.ptr) = v.Elem().vNew().ptr
+		e := v.Elem()
+		if e.ptr != nil {
+			*(*unsafe.Pointer)(n.ptr) = e.vNew().ptr
+		}
 	case Slice:
 		l := (*sliceHeader)(v.ptr).Len
 		t := (*sliceType)(unsafe.Pointer(v.typ)).elem
@@ -129,7 +127,7 @@ func (v VALUE) vNew() VALUE {
 			return
 		})
 	}
-	fmt.Println("creating from:", v.typ, v.Interface(), v.Serialize())
-	fmt.Println("returning:", n.typ, n.Interface(), n.Serialize())
+	/* fmt.Println("creating from:", v.typ, v.Interface(), v.Serialize())
+	fmt.Println("returning:", n.typ, n.Interface(), n.Serialize()) */
 	return n
 }
