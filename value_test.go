@@ -161,9 +161,12 @@ func TestRnew_(t *testing.T) {
 
 func TestRnewDeep(t *testing.T) {
 	l := []string{
-		//"array_array", "array_map", "array_slice", "array_struct", "array_ptr_string", "map_map", "struct_any", "array_ptr_any_single", "map_ptr_map_single",
+		"array_array", "array_map", "array_slice", "array_struct",
+		"array_ptr_string",
+		"map_map", //"struct_any", "array_ptr_any_single",
+		//"map_ptr_map_single",
 		//"slice_ptr_array_single",
-		"slice_ptr_array",
+		//"slice_ptr_array",
 	}
 	v := getTestVars()
 	for _, n := range l {
@@ -185,19 +188,26 @@ func TestRnewDeep(t *testing.T) {
 	}
 }
 
+func TestIface(t *testing.T) {
+	i := interface{}(1)
+	v := ValueOf(i)
+	fmt.Println(v.typ, v.typ.IfaceIndir())
+}
+
 func (v VALUE) rnew() VALUE {
 	return VALUE{v.typ.ptrType(), unsafe_New(v.typ), flag(Pointer)}
 }
 
 func (v VALUE) rnewdeep() VALUE {
 	n := v.rnew()
-	new := func(k KIND, n VALUE) VALUE {
+	new := func(new VALUE, pIndir bool, dIface bool) VALUE {
 		// evaluate new value
 		nt := (*ptrType)(unsafe.Pointer(n.typ)).elem
 		nk := nt.Kind()
-		if !nk.IsBasic() && (nt.IfaceIndir() || nk == Map || k == Interface) {
+		if !nk.IsBasic() && (nt.IfaceIndir() || nk == Map || dIface) {
 			n = n.Elem()
-		} else if nk == Pointer && !nt.elem().IfaceIndir() {
+		}
+		if pIndir && !nt.IfaceIndir() /* && nt.elem().IfaceIndir() */ {
 			n.ptr = *(*unsafe.Pointer)(n.ptr)
 		}
 		return n
@@ -208,18 +218,22 @@ func (v VALUE) rnewdeep() VALUE {
 		case Interface:
 			*(*any)(i.ptr) = n.Interface()
 		case Map:
-			*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
+			*(*unsafe.Pointer)(i.ptr) = n.ptr //*(*unsafe.Pointer)(n.ptr)
 		case Slice:
 			*(*[24]byte)(i.ptr) = *(*[24]byte)(n.ptr)
+		/* case Array:
+		if !i.typ.IfaceIndir() {
+			*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
+		} else {
+			*(*unsafe.Pointer)(i.ptr) = n.ptr
+		} */
 		default:
-			if !i.typ.IfaceIndir() {
-				fmt.Println("setting")
-				//os.Exit(1)
+			/* if !i.typ.IfaceIndir() {
 				*(*unsafe.Pointer)(i.ptr) = *(*unsafe.Pointer)(n.ptr)
 			} else {
 				*(*unsafe.Pointer)(i.ptr) = n.ptr
-			}
-			//*(*unsafe.Pointer)(i.ptr) = n.ptr
+			} */
+			*(*unsafe.Pointer)(i.ptr) = n.ptr
 		}
 	}
 	switch v.Kind() {
@@ -227,8 +241,10 @@ func (v VALUE) rnewdeep() VALUE {
 		kind := (*arrayType)(unsafe.Pointer(v.typ)).elem.Kind()
 		if !kind.IsBasic() {
 			a := (ARRAY)(n.Elem())
+			pIndir := v.typ.IfaceIndir()
+			dIface := kind == Interface
 			(ARRAY)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				set(a.index(i), new(kind, e.rnewdeep()))
+				set(a.index(i), new(e.rnewdeep(), pIndir, dIface))
 				return
 			})
 		}
@@ -236,9 +252,10 @@ func (v VALUE) rnewdeep() VALUE {
 		*(*unsafe.Pointer)(n.ptr) = makemap(v.typ, (MAP)(v).Len(), nil)
 		m := (MAP)(n.Elem())
 		t := (*mapType)(unsafe.Pointer(v.typ)).elem
-		kind := t.Kind()
+		pIndir := v.typ.IfaceIndir()
+		dIface := t.Kind() == Interface
 		(MAP)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			p := new(kind, e.rnewdeep()).ptr
+			p := new(e.rnewdeep(), pIndir, dIface).ptr
 			mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, p)
 			/* if kind == Pointer {
 				mapassign_faststr(m.typ, (VALUE)(m).Pointer(), k, unsafe.Pointer(&p))
@@ -263,16 +280,19 @@ func (v VALUE) rnewdeep() VALUE {
 		kind := t.Kind()
 		if !kind.IsBasic() {
 			s := (SLICE)(n.Elem())
+			pIndir := v.typ.IfaceIndir()
+			dIface := kind == Interface
 			(SLICE)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-				set(s.index(i), new(kind, e.rnewdeep()))
+				set(s.index(i), new(e.rnewdeep(), pIndir, dIface))
 				return
 			})
 		}
 	case Struct:
 		s := (STRUCT)(n.Elem())
 		f := (*structType)(unsafe.Pointer(v.typ)).fields
+		pIndir := v.typ.IfaceIndir()
 		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
-			set(s.index(i), new(f[i].typ.Kind(), e.rnewdeep()))
+			set(s.index(i), new(e.rnewdeep(), f[i].typ.Kind() == Interface, pIndir))
 			return
 		})
 	}

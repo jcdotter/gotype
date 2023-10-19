@@ -11,7 +11,7 @@ TODO:
             [ ] Deep New
         [ ] Encoding
         [ ] ...
-    [ ] fix deserializer (quotes still embedded)
+    [√] fix deserializer (quotes still embedded)
     [ ] Add (VALUE).Init() for nil values
     [ ] Add ULID to UUID
     [ ] Add slice list scan

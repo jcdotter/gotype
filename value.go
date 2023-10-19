@@ -597,7 +597,7 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	if k.IsBasic() {
 		return v.Serialize(), false
 	}
-	if v.Pointer() == nil {
+	if k != Array && k != Struct && v.Pointer() == nil {
 		return "null", false
 	}
 	uptr := v.Uintptr()
