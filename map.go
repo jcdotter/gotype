@@ -407,7 +407,7 @@ func (m MAP) StructTagged(tag string) STRUCT {
 // Scan reads gotype MAP into the struct pointer dest,
 // if tag is empty, Field names will be used to read Map keys into Struct
 func (m MAP) Scan(dest any, tags ...string) {
-	d := ValueOf(dest).Elem().STRUCT()
+	d := ValueOfV(dest).Elem().STRUCT()
 	var dest_idx map[string]FIELD
 	switch len(tags) {
 	case 0:

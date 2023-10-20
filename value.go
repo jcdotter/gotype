@@ -617,6 +617,27 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	}
 }
 
+// Scan reads the values of VALUE into the provided destination pointer,
+// the VALUE must be a a struct, array, map, slice or pointer to one of these,
+// the number of elements in dest must be greater than or equal to
+// the number of elements in VALUE, otherwise Scan will panic
+func (v VALUE) Scan(dest any, tags ...string) {
+	switch v.Kind() {
+	case Array:
+		(ARRAY)(v).Scan(dest)
+	case Map:
+		(MAP)(v).Scan(dest, tags...)
+	case Pointer:
+		v.Elem().Scan(dest, tags...)
+	case Slice:
+		(SLICE)(v).Scan(dest)
+	case Struct:
+		(STRUCT)(v).Scan(dest, tags...)
+	default:
+		panic("cannot scan value")
+	}
+}
+
 // ------------------------------------------------------------ /
 // EXPANDED FUNCTIONS
 // implementations of new functions for

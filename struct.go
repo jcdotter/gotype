@@ -435,7 +435,7 @@ func (s STRUCT) MapFormatted(format StrFormat) (m map[string]any) {
 // Scan reads the values of STRUCT into the provided Struct pointer dest
 // by mapping the field names (or field tags) to those of the dest Struct
 func (s STRUCT) Scan(dest any, tags ...string) {
-	d := ValueOf(dest).Elem().STRUCT()
+	d := ValueOfV(dest).Elem().STRUCT()
 	var dest_idx map[string]FIELD
 	switch len(tags) {
 	case 0:

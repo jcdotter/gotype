@@ -98,11 +98,6 @@ func (r *rtype) ptrType() *rtype {
 	return reflectType(reflect.PtrTo(toType(r)))
 }
 
-// newPtr returns a pointer to a new value instance of the Type
-func (r *rtype) newPtr() unsafe.Pointer {
-	return r.New().ptr
-}
-
 func (r *rtype) IfaceIndir() bool {
 	return r.kind&KindDirectIface == 0
 }

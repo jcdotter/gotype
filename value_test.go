@@ -1,7 +1,6 @@
 package gotype
 
 import (
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -19,17 +18,6 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	v := VALUE{
-		getrtype([]string{}),
-		nil,
-		flag(Slice),
-	}
-	//v := getrtype([]string{}).New().Elem()
-	fmt.Println(v.ptr)
-	v = v.Init()
-	v.SetIndex(0, "test")
-	fmt.Println(v)
-
 }
 
 func TestAll(t *testing.T) {
@@ -1006,4 +994,30 @@ func TestEncodeComplex(t *testing.T) {
 			gt.Equal("true", testGetDeep(d), n)
 		}
 	}
+}
+
+func TestValueScan(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf().Scan()"
+	s := [][]string{
+		{"one", "two"},
+		{"three", "four"},
+	}
+	d := &[]*string_struct{}
+	SliceOf(s).ScanList(d)
+	r := `[{"V1":"one","V2":"two"},{"V1":"three","V2":"four"}]`
+	gt.Equal(r, ValueOf(d).Serialize())
+	m := []*map[string]int{
+		{"one": 1, "two": 2},
+		{"one": 3, "two": 4},
+	}
+	type stest struct {
+		One string `json:"one"`
+		Two string `json:"two"`
+	}
+	d1 := &[]*stest{}
+	SliceOf(m).ScanList(d1, "json")
+	r = `[{"One":"1","Two":"2"},{"One":"3","Two":"4"}]`
+	gt.Equal(r, ValueOf(d1).Serialize())
+
 }

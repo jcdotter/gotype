@@ -107,6 +107,12 @@ func (s SLICE) Extend(n int) SLICE {
 		*h = growslice(t.elem, *h, n)
 		h.Cap = h.Len + n
 	}
+	k := t.elem.Kind()
+	if k == Map || k == Slice || k == Pointer {
+		for i := h.Len; i < h.Cap; i++ {
+			*(*unsafe.Pointer)(unsafe.Pointer(uintptr(h.Data) + uintptr(i)*t.elem.size)) = *(*unsafe.Pointer)(t.elem.NewValue().ptr)
+		}
+	}
 	h.Len += n
 	return s
 }
@@ -309,20 +315,31 @@ func (s SLICE) MapValuesMap(values SLICE) MAP {
 // the number of elements in dest must be greater than or equal to
 // the number of elements in SLICE, otherwise Scan will panic
 func (s SLICE) Scan(dest any) {
-	d := ValueOf(dest).Elem()
+	d := ValueOfV(dest).Elem()
 	for i := 0; i < s.Len() && i < d.Len(); i++ {
 		d.Index(i).Set(s.index(i))
 	}
 }
 
-/* func (s SLICE) ScanList(dest any) {
+// ScanList reads values of a SLICE of data records into the provided
+// destination pointer of a list of structs, or struct pointer
+func (s SLICE) ScanList(dest any, tags ...string) {
 	d := SliceOf(dest)
+	di := d.Len()
+	d.Extend(s.Len())
+	t := (*sliceType)(unsafe.Pointer(d.typ)).elem
+	knd := t.Kind()
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-
-		d = d.Append(v.Interface())
+		dv := t.NewValue()
+		if knd == Pointer {
+			dv = dv.Elem()
+		}
+		v.Scan(dv, tags...)
+		d.index(di).Set(dv.Elem())
+		di++
 		return
-	}
-} */
+	})
+}
 
 // JSON returns gotype SLICE as gotype JSON
 func (s SLICE) JSON() JSON {

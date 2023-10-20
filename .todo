@@ -1,6 +1,4 @@
 TODO:
-    [ ] add slice list scan
-    [ ] license
     [ ] readme
     [ ] manage mem leaks from unsafe_New
     [ ] mutex on value set

@@ -222,7 +222,7 @@ func (a ARRAY) Serialize(ancestry ...ancestor) (s string) {
 // the number of elements in dest must be greater than or equal to
 // the number of elements in ARRAY, otherwise Scan will panic
 func (a ARRAY) Scan(dest any) {
-	d := ValueOf(dest).Elem()
+	d := ValueOfV(dest).Elem()
 	for i := 0; i < a.Len() && i < d.Len(); i++ {
 		d.Index(i).Set(a.index(i))
 	}
