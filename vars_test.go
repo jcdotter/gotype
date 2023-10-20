@@ -1,3 +1,7 @@
+// Copyright 2023 james dotter. All rights reserved.
+// Use of this source code is governed by a
+// license that can be found in the gotype LICENSE file.
+
 package gotype
 
 type bool_struct_single struct {

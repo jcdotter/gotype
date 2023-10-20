@@ -1,7 +1,6 @@
-// Copyright 2023 escend llc. All rights reserved.
+// Copyright 2023 james dotter. All rights reserved.
 // Use of this source code is governed by a
 // license that can be found in the gotype LICENSE file.
-// Author: jcdotter
 
 package gotype
 
