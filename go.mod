@@ -1,4 +1,4 @@
-module gotype
+module github.com/jcdotter/gotype
 
 go 1.21.1
 
