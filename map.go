@@ -328,6 +328,9 @@ func (m MAP) Serialize(ancestry ...ancestor) (s string) {
 		}
 		return
 	})
+	if len(s) < 2 {
+		return "{}"
+	}
 	return "{" + s[1:] + "}"
 }
 

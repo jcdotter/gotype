@@ -280,6 +280,9 @@ func (s STRUCT) SerializeByTag(tag string, ancestry ...ancestor) (S string) {
 		}
 		return
 	})
+	if len(S) < 2 {
+		return "{}"
+	}
 	return "{" + S[1:] + "}"
 }
 
