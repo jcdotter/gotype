@@ -26,6 +26,16 @@ func (f FIELD) VALUE() VALUE {
 	return *(*VALUE)(unsafe.Pointer(&f))
 }
 
+// TYPE returns the TYPE of gotype FIELD
+func (f FIELD) TYPE() TYPE {
+	return TYPE{f.typ}
+}
+
+// Pointer returns the pointer to gotype FIELD
+func (f FIELD) Pointer() unsafe.Pointer {
+	return f.ptr
+}
+
 // Kind returns the gotype Kind of the field
 func (f FIELD) KIND() KIND {
 	return f.typ.KIND()

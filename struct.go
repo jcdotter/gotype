@@ -180,6 +180,16 @@ func (s STRUCT) VALUE() VALUE {
 	return (VALUE)(s)
 }
 
+// TYPE returns the TYPE of gotype STRUCT
+func (s STRUCT) TYPE() TYPE {
+	return TYPE{s.typ}
+}
+
+// Pointer returns the pointer to gotype STRUCT
+func (s STRUCT) Pointer() unsafe.Pointer {
+	return s.ptr
+}
+
 // Bytes returns gotype STRUCT as []byte
 func (s STRUCT) Encode() ENCODING {
 	l := s.Len()

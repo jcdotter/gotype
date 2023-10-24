@@ -61,6 +61,10 @@ type rtype struct {
 	ptrToThis  typeOff // type for pointer to this type, may be zero
 }
 
+type TYPE struct {
+	*rtype
+}
+
 func getrtype(a any) *rtype {
 	return *(**rtype)(unsafe.Pointer(&a))
 }

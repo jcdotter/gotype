@@ -161,6 +161,11 @@ func (v VALUE) NewDeep() VALUE {
 // referenced packages: reflect
 // ------------------------------------------------------------ /
 
+// Type returns the *rtype of VALUE
+func (v VALUE) Type() TYPE {
+	return TYPE{v.typ}
+}
+
 // Kind returns the kind of data type of Value
 func (v VALUE) KIND() KIND {
 	return v.typ.KIND()

@@ -134,6 +134,16 @@ func (a ARRAY) VALUE() VALUE {
 	return (VALUE)(a)
 }
 
+// TYPE returns the TYPE of gotype ARRAY
+func (a ARRAY) TYPE() TYPE {
+	return TYPE{a.typ}
+}
+
+// Pointer returns the pointer to gotype ARRAY
+func (a ARRAY) Pointer() unsafe.Pointer {
+	return a.ptr
+}
+
 // Encode returns a gotype encoding of ARRAY
 func (a ARRAY) Encode() ENCODING {
 	l := a.Len()

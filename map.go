@@ -246,6 +246,16 @@ func (m MAP) VALUE() VALUE {
 	return (VALUE)(m)
 }
 
+// TYPE returns the TYPE of gotype MAP
+func (m MAP) TYPE() TYPE {
+	return TYPE{m.typ}
+}
+
+// Pointer returns the pointer to gotype MAP
+func (m MAP) Pointer() unsafe.Pointer {
+	return m.ptr
+}
+
 // Bytes encodes gotype MAP as []byte
 func (m MAP) Encode() ENCODING {
 	t := (*mapType)(unsafe.Pointer(m.typ))

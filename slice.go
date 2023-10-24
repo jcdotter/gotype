@@ -157,6 +157,16 @@ func (s SLICE) VALUE() VALUE {
 	return (VALUE)(s)
 }
 
+// TYPE returns the TYPE of gotype SLICE
+func (s SLICE) TYPE() TYPE {
+	return TYPE{s.typ}
+}
+
+// Pointer returns the pointer to gotype SLICE
+func (s SLICE) Pointer() unsafe.Pointer {
+	return s.ptr
+}
+
 // Encode returns a gotype encoding of SLICE
 func (s SLICE) Encode() ENCODING {
 	l := s.Len()
