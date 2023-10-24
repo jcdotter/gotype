@@ -217,7 +217,7 @@ func (s SLICE) Serialize(ancestry ...ancestor) (S string) {
 		}
 		return
 	})
-	if S == "," {
+	if len(S) < 2 {
 		return "[]"
 	}
 	return "[" + S[1:] + "]"

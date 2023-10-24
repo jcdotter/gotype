@@ -224,7 +224,7 @@ func (a ARRAY) Serialize(ancestry ...ancestor) (s string) {
 		}
 		return
 	})
-	if s == "," {
+	if len(s) < 2 {
 		return "[]"
 	}
 	return "[" + s[1:] + "]"
