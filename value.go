@@ -162,7 +162,7 @@ func (v VALUE) NewDeep() VALUE {
 // ------------------------------------------------------------ /
 
 // Type returns the *rtype of VALUE
-func (v VALUE) Type() TYPE {
+func (v VALUE) TYPE() TYPE {
 	return TYPE{v.typ}
 }
 

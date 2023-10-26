@@ -65,6 +65,10 @@ type TYPE struct {
 	*rtype
 }
 
+func TypeOf(a any) TYPE {
+	return TYPE{*(**rtype)(unsafe.Pointer(&a))}
+}
+
 func getrtype(a any) *rtype {
 	return *(**rtype)(unsafe.Pointer(&a))
 }
