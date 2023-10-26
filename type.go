@@ -69,6 +69,46 @@ func TypeOf(a any) TYPE {
 	return TYPE{*(**rtype)(unsafe.Pointer(&a))}
 }
 
+func (t TYPE) String() string {
+	return t.Name()
+}
+
+func (t TYPE) STRING() STRING {
+	return STRING(t.String())
+}
+
+func (t TYPE) Name() string {
+	return t.rtype.Name()
+}
+
+func (t TYPE) New() VALUE {
+	return t.rtype.New()
+}
+
+func (t TYPE) NewValue() VALUE {
+	return t.rtype.NewValue()
+}
+
+func (t TYPE) Kind() KIND {
+	return t.rtype.Kind()
+}
+
+func (t TYPE) KIND() KIND {
+	return t.rtype.KIND()
+}
+
+func (t TYPE) Elem() TYPE {
+	return TYPE{t.rtype.elem()}
+}
+
+func (t TYPE) IfaceIndir() bool {
+	return t.rtype.IfaceIndir()
+}
+
+func (t TYPE) Reflect() reflect.Type {
+	return toType(t.rtype)
+}
+
 func getrtype(a any) *rtype {
 	return *(**rtype)(unsafe.Pointer(&a))
 }
