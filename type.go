@@ -190,8 +190,15 @@ func (r *rtype) KIND() KIND {
 }
 
 func (r *rtype) elem() *rtype {
-	if r.Kind() == Pointer {
+	switch r.Kind() {
+	case Array:
+		return (*arrayType)(unsafe.Pointer(r)).elem
+	case Map:
+		return (*mapType)(unsafe.Pointer(r)).elem
+	case Pointer:
 		return (*ptrType)(unsafe.Pointer(r)).elem
+	case Slice:
+		return (*sliceType)(unsafe.Pointer(r)).elem
 	}
 	return r
 }

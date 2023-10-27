@@ -1,6 +1,0 @@
-TODO:
-    [ ] readme
-    [ ] manage mem leaks from unsafe_New
-    [ ] mutex on value set
-    [ ] optimize ValueOf, VALUE.Elem(), VALUE.SetType()
-        - move away from reflect pkg reliance
