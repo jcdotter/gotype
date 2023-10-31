@@ -612,10 +612,14 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	case Slice:
 		return (SLICE)(v).Serialize(ancestry...), false
 	case Struct:
-		if v.typ == TypeOf(VALUE{}) {
+		switch v.typ {
+		case TypeOf(VALUE{}):
 			return v.Interface().(VALUE).serialSafe(ancestry...)
+		case TypeOf(TYPE{}):
+			return `"` + (*TYPE)(v.ptr).Name() + `"`, false
+		default:
+			return (STRUCT)(v).Serialize(ancestry...), false
 		}
-		return (STRUCT)(v).Serialize(ancestry...), false
 	default:
 		return v.Serialize(), false
 	}
