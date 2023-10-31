@@ -69,11 +69,11 @@ func offseti(p unsafe.Pointer, offset int) unsafe.Pointer {
 
 //go:noescape
 //go:linkname makemap runtime.makemap
-func makemap(t *rtype, cap int, hint unsafe.Pointer) unsafe.Pointer
+func makemap(t *TYPE, cap int, hint unsafe.Pointer) unsafe.Pointer
 
 //go:noescape
 //go:linkname refmakemap reflect.makemap
-func refmakemap(t *rtype, cap int) unsafe.Pointer
+func refmakemap(t *TYPE, cap int) unsafe.Pointer
 
 //go:noescape
 //go:linkname maplen reflect.maplen
@@ -81,7 +81,7 @@ func maplen(unsafe.Pointer) int
 
 //go:noescape
 //go:linkname mapiterinit reflect.mapiterinit
-func mapiterinit(t *rtype, m unsafe.Pointer, it *hiter)
+func mapiterinit(t *TYPE, m unsafe.Pointer, it *hiter)
 
 //go:noescape
 //go:linkname mapiterkey reflect.mapiterkey
@@ -97,35 +97,35 @@ func mapiternext(it *hiter)
 
 //go:noescape
 //go:linkname mapaccess_faststr reflect.mapaccess_faststr
-func mapaccess_faststr(t *rtype, m unsafe.Pointer, key string) (val unsafe.Pointer)
+func mapaccess_faststr(t *TYPE, m unsafe.Pointer, key string) (val unsafe.Pointer)
 
 //go:noescape
 //go:linkname mapdelete_faststr reflect.mapdelete_faststr
-func mapdelete_faststr(t *rtype, m unsafe.Pointer, key string)
+func mapdelete_faststr(t *TYPE, m unsafe.Pointer, key string)
 
 //go:noescape
 //go:linkname mapassign_faststr reflect.mapassign_faststr
-func mapassign_faststr(t *rtype, m unsafe.Pointer, key string, val unsafe.Pointer)
+func mapassign_faststr(t *TYPE, m unsafe.Pointer, key string, val unsafe.Pointer)
 
 //go:noescape
 //go:linkname toType reflect.toType
-func toType(t *rtype) reflect.Type
+func toType(t *TYPE) reflect.Type
 
 //go:noescape
 //go:linkname unsafe_New reflect.unsafe_New
-func unsafe_New(*rtype) unsafe.Pointer
+func unsafe_New(*TYPE) unsafe.Pointer
 
 //go:noescape
 //go:linkname unsafe_NewArray reflect.unsafe_NewArray
-func unsafe_NewArray(*rtype, int) unsafe.Pointer
+func unsafe_NewArray(*TYPE, int) unsafe.Pointer
 
 //go:noescape
 //go:linkname growslice reflect.growslice
-func growslice(t *rtype, old sliceHeader, num int) sliceHeader
+func growslice(t *TYPE, old sliceHeader, num int) sliceHeader
 
 //go:noescape
 //go:linkname typedmemmove reflect.typedmemmove
-func typedmemmove(t *rtype, dst, src unsafe.Pointer)
+func typedmemmove(t *TYPE, dst, src unsafe.Pointer)
 
 //go:noescape
 //go:linkname resolveNameOff reflect.resolveNameOff
@@ -133,7 +133,7 @@ func resolveNameOff(ptrInModule unsafe.Pointer, off int32) unsafe.Pointer
 
 //go:noescape
 //go:linkname mallocgc runtime.mallocgc
-func mallocgc(size uintptr, typ *rtype, needzero bool) unsafe.Pointer
+func mallocgc(size uintptr, typ *TYPE, needzero bool) unsafe.Pointer
 
 //go:noescape
 //go:linkname fastrand runtime.fastrand

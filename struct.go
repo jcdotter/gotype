@@ -181,8 +181,8 @@ func (s STRUCT) VALUE() VALUE {
 }
 
 // TYPE returns the TYPE of gotype STRUCT
-func (s STRUCT) TYPE() TYPE {
-	return TYPE{s.typ}
+func (s STRUCT) TYPE() *TYPE {
+	return s.typ
 }
 
 // Pointer returns the pointer to gotype STRUCT
@@ -407,7 +407,7 @@ func (s *STRUCT) SubTagIndex(tag string, subTag string) map[string]FIELD {
 
 // ReflectValue returns the reflect.Value of gotype STRUCT
 func (s STRUCT) ReflectValue() reflect.Value {
-	return *(*reflect.Value)(unsafe.Pointer(&rval{s.typ, s.ptr, 25}))
+	return *(*reflect.Value)(unsafe.Pointer(&VALUE{s.typ, s.ptr, flag(Struct)}))
 }
 
 // ReflectType returns the reflect.Type of gotype STRUCT

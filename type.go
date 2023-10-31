@@ -1,4 +1,4 @@
-// Copyright 2023 james dotter. All rights reserved.typVal
+// Copyright 2023 james dotter. All rights reserved.
 // Use of this source code is governed by a
 // license that can be found in the gotype LICENSE file.
 
@@ -11,7 +11,7 @@ import (
 )
 
 // ------------------------------------------------------------ /
-// RKIND IMPLEMENTATION
+// TYPE IMPLEMENTATION
 // custom implementation of golang source code: reflect.Type
 // with expanded functionality
 // ------------------------------------------------------------ /
@@ -23,6 +23,8 @@ const (
 	flagEmbedRO     flag = 1 << 6
 	flagIndir       flag = 1 << 7
 	flagAddr        flag = 1 << 8
+
+	tflagUncommon tflag = 1 << 0
 )
 
 var (
@@ -39,15 +41,9 @@ var (
 type flag uintptr
 type tflag uint8
 type nameOff int32 // offset to a name
-type typeOff int32 // offset to an *rtype
+type typeOff int32 // offset to a *TYPE
 
-type rval struct {
-	typ *rtype
-	ptr unsafe.Pointer
-	flag
-}
-
-type rtype struct {
+type TYPE struct {
 	size       uintptr
 	ptrdata    uintptr // number of bytes in the type that can contain pointers
 	hash       uint32  // hash of type; avoids computation in hash tables
@@ -61,121 +57,86 @@ type rtype struct {
 	ptrToThis  typeOff // type for pointer to this type, may be zero
 }
 
-type TYPE struct {
-	*rtype
+// TypeOf returns the gotype of value a
+func TypeOf(a any) *TYPE {
+	return *(**TYPE)(unsafe.Pointer(&a))
 }
 
-func TypeOf(a any) TYPE {
-	return TYPE{*(**rtype)(unsafe.Pointer(&a))}
-}
-
-func (t TYPE) String() string {
-	return t.Name()
-}
-
-func (t TYPE) STRING() STRING {
-	return STRING(t.String())
-}
-
-func (t TYPE) Name() string {
-	return t.rtype.Name()
-}
-
-func (t TYPE) New() VALUE {
-	return t.rtype.New()
-}
-
-func (t TYPE) NewValue() VALUE {
-	return t.rtype.NewValue()
-}
-
-func (t TYPE) Kind() KIND {
-	return t.rtype.Kind()
-}
-
-func (t TYPE) KIND() KIND {
-	return t.rtype.KIND()
-}
-
-func (t TYPE) Elem() TYPE {
-	return TYPE{t.rtype.elem()}
-}
-
-func (t TYPE) IfaceIndir() bool {
-	return t.rtype.IfaceIndir()
-}
-
-func (t TYPE) Reflect() reflect.Type {
-	return toType(t.rtype)
-}
-
-func getrtype(a any) *rtype {
-	return *(**rtype)(unsafe.Pointer(&a))
-}
-
-func reflectType(t reflect.Type) *rtype {
+// FromReflectType returns the gotype of reflect.Type t
+func FromReflectType(t reflect.Type) *TYPE {
 	a := (any)(t)
-	return (*rtype)((*VALUE)(unsafe.Pointer(&a)).ptr)
+	return (*TYPE)((*VALUE)(unsafe.Pointer(&a)).ptr)
 }
 
-// New returns an empty pointer to of the Type
-func (r *rtype) New() VALUE {
-	if r != nil {
-		return VALUE{r.ptrType(), unsafe_New(r), flag(Pointer)}
+// New returns an empty pointer to a new value of the TYPE
+func (t *TYPE) New() VALUE {
+	if t != nil {
+		return VALUE{t.PtrType(), unsafe_New(t), flag(Pointer)}
 	}
 	panic("call to New on nil type")
 }
 
-// New returns a pointer to a new value of the Type
-func (r *rtype) NewValue() VALUE {
-	n := r.New()
-	switch r.Kind() {
+// New returns a pointer to a new (non nil) value of the TYPE
+func (t *TYPE) NewValue() VALUE {
+	n := t.New()
+	switch t.Kind() {
 	case Map:
-		*(*unsafe.Pointer)(n.ptr) = makemap(r, 0, nil)
+		*(*unsafe.Pointer)(n.ptr) = makemap(t, 0, nil)
 	case Pointer:
-		*(*unsafe.Pointer)(n.ptr) = r.elem().NewValue().ptr
+		*(*unsafe.Pointer)(n.ptr) = t.Elem().NewValue().ptr
 	case Slice:
-		t := (*sliceType)(unsafe.Pointer(r)).elem
+		t := (*sliceType)(unsafe.Pointer(t)).elem
 		*(*unsafe.Pointer)(&n.ptr) = unsafe.Pointer(&sliceHeader{unsafe_NewArray(t, 0), 0, 0})
 	}
 	return n
 }
 
-func (r *rtype) ptrType() *rtype {
-	return reflectType(reflect.PtrTo(toType(r)))
+// Reflect returns the reflect.Type of the TYPE
+func (t *TYPE) Reflect() reflect.Type {
+	return toType(t)
 }
 
-func (r *rtype) IfaceIndir() bool {
-	return r.kind&KindDirectIface == 0
+// PtrType returns a new TYPE of a pointer to the TYPE
+func (t *TYPE) PtrType() *TYPE {
+	return FromReflectType(reflect.PtrTo(toType(t)))
 }
 
-func (r *rtype) flag() flag {
-	f := flag(r.kind & kindMask)
-	if r.IfaceIndir() {
+// IfaceIndir returns true if the TYPE is an indirect value
+func (t *TYPE) IfaceIndir() bool {
+	return t.kind&KindDirectIface == 0
+}
+
+// flag returns the flag of the TYPE
+func (t *TYPE) flag() flag {
+	f := flag(t.kind & kindMask)
+	if t.IfaceIndir() {
 		f |= flagIndir
 	}
 	return f
 }
 
-func (r *rtype) Kind() KIND {
-	return KIND(r.kind & kindMask)
+// Kind returns the KIND of the TYPE synonomous with reflect.Kind
+func (t *TYPE) Kind() KIND {
+	return KIND(t.kind & kindMask)
 }
 
-func (r *rtype) KIND() KIND {
-	k := KIND(r.kind & kindMask)
+// KIND returns the gotype KIND of the TYPE
+// which includes Bytes, Field, Time, Uuid
+func (t *TYPE) KIND() KIND {
+	k := KIND(t.kind & kindMask)
 	switch k {
 	case Slice: // check if byte array
-		ek := (*sliceType)(unsafe.Pointer(r)).elem.kind & kindMask
+		ek := (*sliceType)(unsafe.Pointer(t)).elem.kind & kindMask
 		if ek == 8 || ek == 10 { // []byte or []rune
 			return Bytes
 		}
 	case Array: // check if uuid
-		a := (*arrayType)(unsafe.Pointer(r))
+		a := (*arrayType)(unsafe.Pointer(t))
 		if a.len == 16 && a.elem.kind&kindMask == 8 { // [16]byte
 			return Uuid
 		}
 	case Struct: // check if time
-		fs := (*structType)(unsafe.Pointer(r)).fields
+		fs := (*structType)(unsafe.Pointer(t)).fields
 		if len(fs) == 3 {
 			if fs[0].name.bytes != __timefield0b || fs[0].typ != __timefield0t ||
 				fs[1].name.bytes != __timefield1b || fs[1].typ != __timefield1t ||
@@ -189,66 +150,64 @@ func (r *rtype) KIND() KIND {
 	return k
 }
 
-func (r *rtype) elem() *rtype {
-	switch r.Kind() {
+// Elem returns the TYPE of the element of the TYPE
+func (t *TYPE) Elem() *TYPE {
+	switch t.Kind() {
 	case Array:
-		return (*arrayType)(unsafe.Pointer(r)).elem
+		return (*arrayType)(unsafe.Pointer(t)).elem
 	case Map:
-		return (*mapType)(unsafe.Pointer(r)).elem
+		return (*mapType)(unsafe.Pointer(t)).elem
 	case Pointer:
-		return (*ptrType)(unsafe.Pointer(r)).elem
+		return (*ptrType)(unsafe.Pointer(t)).elem
 	case Slice:
-		return (*sliceType)(unsafe.Pointer(r)).elem
+		return (*sliceType)(unsafe.Pointer(t)).elem
 	}
-	return r
+	return t
 }
 
-func (r *rtype) String() string {
-	return r.Name()
+// String returns the string representation of the TYPE
+func (t *TYPE) String() string {
+	return t.Name()
 }
 
-func (r *rtype) STRING() STRING {
-	return STRING(r.String())
+// STRING returns the gotype STRING representation of the TYPE
+func (t *TYPE) STRING() STRING {
+	return STRING(t.String())
 }
 
-func (r *rtype) Name() string {
-	n := name{(*byte)(resolveNameOff(unsafe.Pointer(r), int32(r.str)))}.name()
-	if r.Kind() != Pointer {
+// Name returns the name of the TYPE
+func (t *TYPE) Name() string {
+	n := name{(*byte)(resolveNameOff(unsafe.Pointer(t), int32(t.str)))}.name()
+	if t.Kind() != Pointer {
 		n = n[1:]
 	}
 	return n
 }
 
-// matchStructType compairs the structure of 2 structs
-func matchStructType(x, y *rtype) bool {
-	if x.kind&kindMask == 25 && y.kind&kindMask == 25 {
-		xfs := (*structType)(unsafe.Pointer(x)).fields
-		yfs := (*structType)(unsafe.Pointer(y)).fields
-		if len(xfs) == len(yfs) {
-			for i, xf := range xfs {
-				yf := yfs[i]
-				if xf.name.bytes != yf.name.bytes || xf.typ != yf.typ {
-					return false
-				}
-			}
-			return true
-		}
-	}
-	return false
-}
+// ------------------------------------------------------------ /
+// STURCTURED TYPES
+// implementation of golang types for data structures:
+// array, map, ptr, slice, string, struct, field, interface
+// ------------------------------------------------------------ /
 
 type arrayType struct {
-	rtype
-	elem  *rtype // array element type
-	slice *rtype // slice type
+	TYPE
+	elem  *TYPE // array element type
+	slice *TYPE // slice type
 	len   uintptr
 }
 
+type funcType struct {
+	TYPE
+	inCount  uint16
+	outCount uint16
+}
+
 type mapType struct {
-	rtype
-	key    *rtype // map key type
-	elem   *rtype // map element (value) type
-	bucket *rtype // internal bucket structure
+	TYPE
+	key    *TYPE // map key type
+	elem   *TYPE // map element (value) type
+	bucket *TYPE // internal bucket structure
 	// function for hashing keys (ptr to key, seed) -> hash
 	hasher     func(unsafe.Pointer, uintptr) uintptr
 	keysize    uint8  // size of key slot
@@ -289,13 +248,13 @@ type hiter struct {
 }
 
 type ptrType struct {
-	rtype
-	elem *rtype
+	TYPE
+	elem *TYPE
 }
 
 type sliceType struct {
-	rtype
-	elem *rtype // slice element type
+	TYPE
+	elem *TYPE // slice element type
 }
 
 type sliceHeader struct {
@@ -310,19 +269,19 @@ type stringHeader struct {
 }
 
 type structType struct {
-	rtype
+	TYPE
 	pkgPath name
 	fields  []fieldType // sorted by offset
 }
 
 type fieldType struct {
 	name   name    // name is always non-empty
-	typ    *rtype  // type of field
+	typ    *TYPE   // type of field
 	offset uintptr // byte offset of field
 }
 
 type interfaceType struct {
-	*rtype
+	*TYPE
 	PkgPath name      // import path
 	Methods []Imethod // sorted by hash
 }
@@ -336,286 +295,161 @@ type Imethod struct {
 	_ typeOff
 }
 
+/* type uncommonType struct {
+	pkgPath nameOff // import path; empty for built-in types like int, string
+	mcount  uint16  // number of methods
+	xcount  uint16  // number of exported methods
+	moff    uint32  // offset from this uncommontype to [mcount]method
+	_       uint32  // unused
+} */
+
 // ------------------------------------------------------------ /
-// KIND IMPLEMENTATION
-// custom implementation of golang source code: reflect.Kind
-// with expanded functionality
+// STRUCT TYPE IMPLEMENTATION
+// custom implementation of golang struct type
 // ------------------------------------------------------------ /
 
-type KIND uint8
-
-const (
-	Invalid KIND = iota
-	Bool
-	Int
-	Int8
-	Int16
-	Int32
-	Int64
-	Uint
-	Uint8
-	Uint16
-	Uint32
-	Uint64
-	Uintptr
-	Float32
-	Float64
-	Complex64
-	Complex128
-	Array
-	Chan
-	Func
-	Interface
-	Map
-	Pointer
-	Slice
-	String
-	Struct
-	UnsafePointer
-	Field
-	Time
-	Uuid
-	Bytes
-)
-
-var kindNames = []string{
-	Invalid:       "invalid",
-	Bool:          "bool",
-	Int:           "int",
-	Int8:          "int8",
-	Int16:         "int16",
-	Int32:         "int32",
-	Int64:         "int64",
-	Uint:          "uint",
-	Uint8:         "uint8",
-	Uint16:        "uint16",
-	Uint32:        "uint32",
-	Uint64:        "uint64",
-	Uintptr:       "uintptr",
-	Float32:       "float32",
-	Float64:       "float64",
-	Complex64:     "complex64",
-	Complex128:    "complex128",
-	Array:         "array",
-	Chan:          "chan",
-	Func:          "func",
-	Interface:     "interface",
-	Map:           "map",
-	Pointer:       "ptr",
-	Slice:         "slice",
-	String:        "string",
-	Struct:        "struct",
-	UnsafePointer: "unsafe.Pointer",
-	Field:         "field",
-	Time:          "time",
-	Uuid:          "uuid",
-	Bytes:         "bytes",
+// IsStruct returns true if the TYPE is a struct
+func (t *TYPE) IsStruct() bool {
+	return t.Kind() == Struct
 }
 
-var kindVals = []any{
-	Invalid:    0,
-	Bool:       false,
-	Int:        int(0),
-	Int8:       int8(0),
-	Int16:      int16(0),
-	Int32:      int32(0),
-	Int64:      int64(0),
-	Uint:       uint(0),
-	Uint8:      uint8(0),
-	Uint16:     uint16(0),
-	Uint32:     uint32(0),
-	Uint64:     uint64(0),
-	Uintptr:    uintptr(0),
-	Float32:    float32(0),
-	Float64:    float64(0),
-	Complex64:  complex64(0),
-	Complex128: complex128(0),
-	Array: []any{
-		Bool:       [0]bool{},
-		Int:        [0]int{},
-		Int8:       [0]int8{},
-		Int16:      [0]int16{},
-		Int32:      [0]int32{},
-		Int64:      [0]int64{},
-		Uint:       [0]uint{},
-		Uint8:      [0]uint8{},
-		Uint16:     [0]uint16{},
-		Uint32:     [0]uint32{},
-		Uint64:     [0]uint64{},
-		Float32:    [0]float32{},
-		Float64:    [0]float64{},
-		Complex64:  [0]complex64{},
-		Complex128: [0]complex128{},
-		Array:      [0]float64{},
-	},
-	Chan:          make(chan any),
-	Func:          func() {},
-	Interface:     (any)(0),
-	Map:           map[any]any{},
-	Pointer:       VALUE{}.ptr,
-	Slice:         []any{},
-	String:        "",
-	Struct:        struct{}{},
-	UnsafePointer: VALUE{}.ptr,
-	Field:         FIELD{},
-	Time:          INT(0).TIME(),
-	Uuid:          UUID{},
-	Bytes:         []byte{},
+// NumField returns the number of fields in a struct TYPE
+func (t *TYPE) NumField() int {
+	return len((*structType)(unsafe.Pointer(t)).fields)
 }
 
-func KindOf(a any) KIND {
-	return ValueOf(a).KIND()
+// Field returns the TYPE of the field at index i in a struct TYPE
+func (t *TYPE) Field(i int) *TYPE {
+	return (*structType)(unsafe.Pointer(t)).fields[i].typ
 }
 
-func (k KIND) String() string {
-	return kindNames[uint8(k)]
-}
-
-func (k KIND) STRING() STRING {
-	return STRING(k.String())
-}
-
-func (k KIND) Byte() byte {
-	return byte(k)
-}
-
-func (k KIND) IsBasic() bool {
-	return k > 0 && (k < 15 || k == 24 || k > 27)
-}
-
-func (k KIND) IsNumeric() bool {
-	return k == Int || k == Int8 || k == Int16 || k == Int32 || k == Int64 ||
-		k == Uint || k == Uint8 || k == Uint16 || k == Uint32 || k == Uint64 ||
-		k == Float32 || k == Float64
-}
-
-func (k KIND) CanNil() bool {
-	return k == Array || k == Interface || k == Map || k == Pointer || k == Slice || k == Struct
-}
-
-func (k KIND) Size() uintptr {
-	return (*VALUE)(unsafe.Pointer(&kindVals[k])).typ.size
-}
-
-func (k KIND) NewValue() VALUE {
-	return (*VALUE)(unsafe.Pointer(&kindVals[k])).typ.New()
-}
-
-func (k KIND) NewArray(size int) ARRAY {
-	return k.NewSlice(size).ARRAY()
-}
-
-func (k KIND) NewSlice(size int) SLICE {
-	switch k {
-	case Bool:
-		a := make([]bool, size)
-		return SliceOf(&a)
-	case Int:
-		a := make([]int, size)
-		return SliceOf(&a)
-	case Int8:
-		a := make([]int8, size)
-		return SliceOf(&a)
-	case Int16:
-		a := make([]int16, size)
-		return SliceOf(&a)
-	case Int32:
-		a := make([]int32, size)
-		return SliceOf(&a)
-	case Int64:
-		a := make([]int64, size)
-		return SliceOf(&a)
-	case Uint:
-		a := make([]uint, size)
-		return SliceOf(&a)
-	case Uint8:
-		a := make([]uint8, size)
-		return SliceOf(&a)
-	case Uint16:
-		a := make([]uint16, size)
-		return SliceOf(&a)
-	case Uint32:
-		a := make([]uint32, size)
-		return SliceOf(&a)
-	case Uint64:
-		a := make([]uint64, size)
-		return SliceOf(&a)
-	case Uintptr:
-		a := make([]uintptr, size)
-		return SliceOf(&a)
-	case Float32:
-		a := make([]float32, size)
-		return SliceOf(&a)
-	case Float64:
-		a := make([]float64, size)
-		return SliceOf(&a)
-	case Complex64:
-		a := make([]complex64, size)
-		return SliceOf(&a)
-	case Complex128:
-		a := make([]complex128, size)
-		return SliceOf(&a)
-	case String:
-		a := make([]string, size)
-		return SliceOf(&a)
-	case Time:
-		a := make([]TIME, size)
-		return SliceOf(&a)
-	case Uuid:
-		a := make([]UUID, size)
-		return SliceOf(&a)
-	case Bytes:
-		a := make([][]byte, size)
-		return SliceOf(&a)
+// FieldByName returns the TYPE of the field with name in a struct TYPE
+func (t *TYPE) FieldByName(name string) *TYPE {
+	fs := (*structType)(unsafe.Pointer(t)).fields
+	for _, f := range fs {
+		if f.name.name() == name {
+			return f.typ
+		}
 	}
-	a := make([]any, size)
-	return SliceOf(&a)
+	return nil
 }
 
-func (k KIND) NewMap() MAP {
-	switch k {
-	case Bool:
-		return MapOf(make(map[string]bool))
-	case Int:
-		return MapOf(make(map[string]int))
-	case Int8:
-		return MapOf(make(map[string]int8))
-	case Int16:
-		return MapOf(make(map[string]int16))
-	case Int32:
-		return MapOf(make(map[string]int32))
-	case Int64:
-		return MapOf(make(map[string]int64))
-	case Uint:
-		return MapOf(make(map[string]uint))
-	case Uint8:
-		return MapOf(make(map[string]uint8))
-	case Uint16:
-		return MapOf(make(map[string]uint16))
-	case Uint32:
-		return MapOf(make(map[string]uint32))
-	case Uint64:
-		return MapOf(make(map[string]uint64))
-	case Uintptr:
-		return MapOf(make(map[string]uintptr))
-	case Float32:
-		return MapOf(make(map[string]float32))
-	case Float64:
-		return MapOf(make(map[string]float64))
-	case Complex64:
-		return MapOf(make(map[string]complex64))
-	case Complex128:
-		return MapOf(make(map[string]complex128))
-	case String:
-		return MapOf(make(map[string]string))
-	case Time:
-		return MapOf(make(map[string]TIME))
-	case Uuid:
-		return MapOf(make(map[string]UUID))
-	case Bytes:
-		return MapOf(make(map[string][]byte))
+// FieldByTag returns the TYPE of the field with tag value in a struct TYPE
+func (t *TYPE) FieldByTag(tag string, value string) *TYPE {
+	fs := (*structType)(unsafe.Pointer(t)).fields
+	for _, f := range fs {
+		v := getTagValue(f.name.tag(), tag, 34)
+		if v == value {
+			return f.typ
+		}
 	}
-	return MapOf(make(map[string]any))
+	return nil
+}
+
+// FieldByIndex returns the TYPE of the field at index in a struct TYPE
+func (t *TYPE) FieldByIndex(index []int) *TYPE {
+	if len(index) == 0 {
+		return t
+	}
+	return (*structType)(unsafe.Pointer(t)).fields[index[0]].typ.FieldByIndex(index[1:])
+}
+
+// FieldName returns the name of the field at index i in a struct TYPE
+func (t *TYPE) FieldName(i int) string {
+	return (*structType)(unsafe.Pointer(t)).fields[i].name.name()
+}
+
+// FieldTag returns the tag of the field at index i in a struct TYPE
+func (t *TYPE) FieldTag(i int) string {
+	return (*structType)(unsafe.Pointer(t)).fields[i].name.tag()
+}
+
+// ForFields iterates over the fields of a struct TYPE and calls
+// the function f with the index and TYPE of each field
+func (t *TYPE) ForFields(f func(i int, n string, typ *TYPE) (brake bool)) {
+	for i, fld := range (*structType)(unsafe.Pointer(t)).fields {
+		if brake := f(i, fld.name.name(), fld.typ); brake {
+			break
+		}
+	}
+}
+
+// FieldTagValue returns the value of the tag of the field at index i in a struct TYPE
+func (t *TYPE) FieldTagValue(i int, tag string) string {
+	return getTagValue((*structType)(unsafe.Pointer(t)).fields[i].name.tag(), tag, 34)
+}
+
+// matchStructType compairs the structure of 2 structs
+func matchStructType(x, y *TYPE) bool {
+	if x.kind&kindMask == 25 && y.kind&kindMask == 25 {
+		xfs := (*structType)(unsafe.Pointer(x)).fields
+		yfs := (*structType)(unsafe.Pointer(y)).fields
+		if len(xfs) == len(yfs) {
+			for i, xf := range xfs {
+				yf := yfs[i]
+				if xf.name.bytes != yf.name.bytes || xf.typ != yf.typ {
+					return false
+				}
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// ------------------------------------------------------------ /
+// FUNC TYPE IMPLEMENTATION
+// custom implementation of golang func type
+// ------------------------------------------------------------ /
+
+// IsFunc returns true if the TYPE is a func
+func (t *TYPE) IsFunc() bool {
+	return t.Kind() == Func
+}
+
+// NumIn returns the number of input parameters in a func TYPE
+func (t *TYPE) NumIn() int {
+	return int((*funcType)(unsafe.Pointer(t)).inCount)
+}
+
+// NumOut returns the number of output parameters in a func TYPE
+func (t *TYPE) NumOut() int {
+	return int((*funcType)(unsafe.Pointer(t)).outCount)
+}
+
+// In returns the TYPE of the input parameter at index i in a func TYPE
+func (t *TYPE) In(i int) *TYPE {
+	return (*funcType)(unsafe.Pointer(t)).in()[i]
+}
+
+// Out returns the TYPE of the output parameter at index i in a func TYPE
+func (t *TYPE) Out(i int) *TYPE {
+	return (*funcType)(unsafe.Pointer(t)).out()[i]
+}
+
+// in returns a slice of TYPEs of the input parameters in a func TYPE
+func (t *funcType) in() []*TYPE {
+	uadd := unsafe.Sizeof(*t)
+	if t.tflag&tflagUncommon != 0 {
+		uadd += 32 //unsafe.Sizeof(uncommonType{})
+	}
+	if t.inCount == 0 {
+		return nil
+	}
+	return (*[1 << 20]*TYPE)(add(unsafe.Pointer(t), uadd))[:t.inCount:t.inCount]
+}
+
+// out returns a slice of TYPEs of the output parameters in a func TYPE
+func (t *funcType) out() []*TYPE {
+	uadd := unsafe.Sizeof(*t)
+	if t.tflag&tflagUncommon != 0 {
+		uadd += 32 //unsafe.Sizeof(uncommonType{})
+	}
+	outCount := t.outCount & (1<<15 - 1)
+	if outCount == 0 {
+		return nil
+	}
+	return (*[1 << 20]*TYPE)(add(unsafe.Pointer(t), uadd))[t.inCount : t.inCount+outCount : t.inCount+outCount]
 }
 
 // ------------------------------------------------------------ /

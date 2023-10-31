@@ -55,8 +55,8 @@ func (v VALUE) ARRAY() ARRAY {
 	}
 }
 
-func NewArray(r *rtype, size int) ARRAY {
-	t := reflectType(reflect.ArrayOf(size, toType(r)))
+func NewArray(r *TYPE, size int) ARRAY {
+	t := FromReflectType(reflect.ArrayOf(size, toType(r)))
 	b := make([]byte, t.size)
 	p := **(**unsafe.Pointer)(unsafe.Pointer(&b))
 	return ARRAY{t, p, flagIndir | flagAddr | flag(Array)}
@@ -135,8 +135,8 @@ func (a ARRAY) VALUE() VALUE {
 }
 
 // TYPE returns the TYPE of gotype ARRAY
-func (a ARRAY) TYPE() TYPE {
-	return TYPE{a.typ}
+func (a ARRAY) TYPE() *TYPE {
+	return a.typ
 }
 
 // Pointer returns the pointer to gotype ARRAY
@@ -178,7 +178,7 @@ func (a ARRAY) Slice() []any {
 // SLICE returns gotype ARRAY as gotype SLICE
 func (a ARRAY) SLICE() SLICE {
 	at := (*arrayType)(unsafe.Pointer(a.typ))
-	a.typ = reflectType(reflect.SliceOf(toType(at.elem)))
+	a.typ = FromReflectType(reflect.SliceOf(toType(at.elem)))
 	l := int(at.len)
 	s := sliceHeader{
 		Data: a.ptr,

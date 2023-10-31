@@ -75,7 +75,7 @@ func (m MAP) Len() int {
 func (m MAP) Keys() []string {
 	p := (VALUE)(m).Pointer()
 	l := *(*int)(p)
-	d := mallocgc(uintptr(l*16), getrtype(byte(0)), false)
+	d := mallocgc(uintptr(l*16), TypeOf(byte(0)), false)
 	keys := *(*[]string)(unsafe.Pointer(&sliceHeader{Data: d, Len: l, Cap: l}))
 	ob := uintptr(0)
 	b := *(*uintptr)(unsafe.Pointer(uintptr(p) + 16))
@@ -247,8 +247,8 @@ func (m MAP) VALUE() VALUE {
 }
 
 // TYPE returns the TYPE of gotype MAP
-func (m MAP) TYPE() TYPE {
-	return TYPE{m.typ}
+func (m MAP) TYPE() *TYPE {
+	return m.typ
 }
 
 // Pointer returns the pointer to gotype MAP

@@ -1025,3 +1025,25 @@ func TestValueScan(t *testing.T) {
 	gt.Equal(r, ValueOf(d1).Serialize())
 
 }
+
+func TestFuncType(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "%s"
+
+	type testStruct struct {
+		one string
+		two string
+	}
+	f := func(s string, d *testStruct) *testStruct {
+		d.one = s
+		d.two = s
+		return d
+	}
+
+	gt.Equal("func(string, *gotype.testStruct) *gotype.testStruct", TypeOf(f).String(), "TypeOf(func)")
+	gt.Equal(2, TypeOf(f).NumIn(), "TypeOf(func).NumIn()")
+	gt.Equal(1, TypeOf(f).NumOut(), "TypeOf(func).NumOut()")
+	gt.Equal("string", TypeOf(f).In(0).String(), "TypeOf(func).In(0)")
+	gt.Equal("*gotype.testStruct", TypeOf(f).In(1).String(), "TypeOf(func).In(1)")
+	gt.Equal("*gotype.testStruct", TypeOf(f).Out(0).String(), "TypeOf(func).Out(0)")
+}

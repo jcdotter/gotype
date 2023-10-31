@@ -7,7 +7,7 @@ package gotype
 import "unsafe"
 
 type FIELD struct {
-	typ    *rtype
+	typ    *TYPE
 	ptr    unsafe.Pointer
 	f      flag
 	name_  name
@@ -27,8 +27,8 @@ func (f FIELD) VALUE() VALUE {
 }
 
 // TYPE returns the TYPE of gotype FIELD
-func (f FIELD) TYPE() TYPE {
-	return TYPE{f.typ}
+func (f FIELD) TYPE() *TYPE {
+	return f.typ
 }
 
 // Pointer returns the pointer to gotype FIELD

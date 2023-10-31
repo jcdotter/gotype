@@ -17,7 +17,7 @@ import (
 // ------------------------------------------------------------ /
 
 type VALUE struct {
-	typ *rtype
+	typ *TYPE
 	ptr unsafe.Pointer
 	flag
 }
@@ -89,11 +89,11 @@ func (v VALUE) New(init ...bool) VALUE {
 func (v VALUE) NewDeep() VALUE {
 	v = v.SetType()
 	n := v.New()
-	indir := func(t *rtype) bool {
+	indir := func(t *TYPE) bool {
 		k := t.Kind()
 		return k == Array || k == Struct
 	}
-	set := func(e VALUE, p unsafe.Pointer, t *rtype) {
+	set := func(e VALUE, p unsafe.Pointer, t *TYPE) {
 		if e.ptr == nil {
 			return
 		}
@@ -162,8 +162,8 @@ func (v VALUE) NewDeep() VALUE {
 // ------------------------------------------------------------ /
 
 // Type returns the *rtype of VALUE
-func (v VALUE) TYPE() TYPE {
-	return TYPE{v.typ}
+func (v VALUE) TYPE() *TYPE {
+	return v.typ
 }
 
 // Kind returns the kind of data type of Value
@@ -194,7 +194,7 @@ func (v VALUE) Pointer() unsafe.Pointer {
 // if the value is a string, returns *string as VALUE
 func (v VALUE) PointerTo() VALUE {
 	return VALUE{
-		v.typ.ptrType(),
+		v.typ.PtrType(),
 		unsafe.Pointer(&v.ptr),
 		flag(Pointer),
 	}
@@ -351,7 +351,7 @@ func (v VALUE) Set(a any) VALUE {
 	switch {
 	case v.typ == n.typ:
 		return v.setMatched(n)
-	case v.Kind() == Pointer && v.typ.elem() == n.typ:
+	case v.Kind() == Pointer && v.typ.Elem() == n.typ:
 		v.Elem().setMatched(n)
 		return v
 	default:
@@ -523,18 +523,18 @@ func (v VALUE) Cast(k KIND) any {
 }
 
 func (v VALUE) Convert(a any) any {
-	return v.convert(getrtype(a)).Interface()
+	return v.convert(TypeOf(a)).Interface()
 }
 
-func (v VALUE) convert(typ *rtype) VALUE {
+func (v VALUE) convert(typ *TYPE) VALUE {
 	v = v.SetType()
 	vk, tk := v.typ.KIND(), typ.Kind()
 	switch {
 	case v.typ == typ:
 		return v
-	case vk == Pointer && v.typ.elem() == typ:
+	case vk == Pointer && v.typ.Elem() == typ:
 		return v.Elem()
-	case tk == Pointer && typ.elem() == v.typ:
+	case tk == Pointer && typ.Elem() == v.typ:
 		return VALUE{
 			typ,
 			unsafe.Pointer(&v.ptr),
@@ -580,7 +580,7 @@ func (v VALUE) Serialize() string {
 }
 
 type ancestor struct {
-	typ     *rtype
+	typ     *TYPE
 	pointer uintptr
 }
 
@@ -612,7 +612,7 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	case Slice:
 		return (SLICE)(v).Serialize(ancestry...), false
 	case Struct:
-		if v.typ == getrtype(VALUE{}) {
+		if v.typ == TypeOf(VALUE{}) {
 			return v.Interface().(VALUE).serialSafe(ancestry...)
 		}
 		return (STRUCT)(v).Serialize(ancestry...), false
@@ -670,7 +670,7 @@ func (v VALUE) ElemKind() KIND {
 }
 
 // elemType returns the *rtype of the underlying Value(s)
-func (v VALUE) elemType() *rtype {
+func (v VALUE) elemType() *TYPE {
 	switch v.Kind() {
 	case Array:
 		return (*arrayType)(unsafe.Pointer(v.typ)).elem
