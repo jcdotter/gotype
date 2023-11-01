@@ -23,19 +23,9 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	l := []any{
-		"test",
-		123,
-		[]string{"test", "test"},
-		[]int{1, 2, 3},
-		map[string]string{"test": "test"},
-		map[string]int{"1": 1, "2": 2, "3": 3},
-		TypeOf("test"),
-		TypeOf(123),
-		TypeOf([]string{"test", "test"}),
-		TypeOf(&[]int{1, 2, 3}),
-	}
-	fmt.Println(ValueOf(l).Serialize())
+	s := STRING("testing")
+	fmt.Println(TypeOf(s).Name())
+	fmt.Println(TypeOf(s).NameShort())
 }
 
 func TestAll(t *testing.T) {

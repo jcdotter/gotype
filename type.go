@@ -184,6 +184,13 @@ func (t *TYPE) Name() string {
 	return n
 }
 
+// NameShort returns the short name of the TYPE
+// excluding the package path, module name and pointer indicator
+func (t *TYPE) NameShort() string {
+	n := t.STRING()
+	return string(n[n.LastIndexOf(".")+1:])
+}
+
 // ------------------------------------------------------------ /
 // STURCTURED TYPES
 // implementation of golang types for data structures:
@@ -295,14 +302,6 @@ type Imethod struct {
 	_ typeOff
 }
 
-/* type uncommonType struct {
-	pkgPath nameOff // import path; empty for built-in types like int, string
-	mcount  uint16  // number of methods
-	xcount  uint16  // number of exported methods
-	moff    uint32  // offset from this uncommontype to [mcount]method
-	_       uint32  // unused
-} */
-
 // ------------------------------------------------------------ /
 // STRUCT TYPE IMPLEMENTATION
 // custom implementation of golang struct type
@@ -311,6 +310,11 @@ type Imethod struct {
 // IsStruct returns true if the TYPE is a struct
 func (t *TYPE) IsStruct() bool {
 	return t.Kind() == Struct
+}
+
+// PkgPath returns the package path of a struct TYPE
+func (t *TYPE) PkgPath() string {
+	return (*structType)(unsafe.Pointer(t)).pkgPath.name()
 }
 
 // NumField returns the number of fields in a struct TYPE
@@ -443,7 +447,7 @@ func (t *funcType) in() []*TYPE {
 func (t *funcType) out() []*TYPE {
 	uadd := unsafe.Sizeof(*t)
 	if t.tflag&tflagUncommon != 0 {
-		uadd += 32 //unsafe.Sizeof(uncommonType{})
+		uadd += 32 //size of uncommonType
 	}
 	outCount := t.outCount & (1<<15 - 1)
 	if outCount == 0 {
