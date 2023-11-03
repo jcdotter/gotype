@@ -24,6 +24,7 @@ var config = &test.Config{
 
 func TestTest(t *testing.T) {
 	s := STRING("testing")
+	fmt.Println(TypeOf(s).PkgPath())
 	fmt.Println(TypeOf(s).Name())
 	fmt.Println(TypeOf(s).NameShort())
 }

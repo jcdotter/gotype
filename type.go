@@ -383,6 +383,11 @@ func (t *TYPE) FieldTagValue(i int, tag string) string {
 	return getTagValue((*structType)(unsafe.Pointer(t)).fields[i].name.tag(), tag, 34)
 }
 
+// TagValue returns the value of the tag in a field TYPE
+func (t *TYPE) TagValue(tag string) string {
+	return getTagValue((*fieldType)(unsafe.Pointer(t)).name.tag(), tag, 34)
+}
+
 // matchStructType compairs the structure of 2 structs
 func matchStructType(x, y *TYPE) bool {
 	if x.kind&kindMask == 25 && y.kind&kindMask == 25 {
