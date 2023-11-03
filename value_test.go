@@ -23,10 +23,18 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	s := STRING("testing")
-	fmt.Println(TypeOf(s).PkgPath())
-	fmt.Println(TypeOf(s).Name())
-	fmt.Println(TypeOf(s).NameShort())
+	type test struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	}
+	s := test{}
+	tt := TypeOf(s)
+	fmt.Println(tt.PkgPath())
+	fmt.Println(tt.Name())
+	fmt.Println(tt.NameShort())
+	fmt.Println(tt.IndexTagValue(0, "json"))
+	fmt.Println(tt.NameTagValue("Name", "json"))
+	fmt.Println(tt.Field(1))
 }
 
 func TestAll(t *testing.T) {

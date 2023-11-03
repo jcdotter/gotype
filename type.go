@@ -358,14 +358,46 @@ func (t *TYPE) FieldByIndex(index []int) *TYPE {
 	return (*structType)(unsafe.Pointer(t)).fields[index[0]].typ.FieldByIndex(index[1:])
 }
 
-// IndexName returns the name of the field at index i in a struct TYPE
-func (t *TYPE) IndexName(i int) string {
+// FieldName returns the name of the field at index i in a struct TYPE
+func (t *TYPE) FieldName(i int) string {
 	return (*structType)(unsafe.Pointer(t)).fields[i].name.name()
+}
+
+// FieldIndex returns the index of the field with name in a struct TYPE
+func (t *TYPE) FieldIndex(name string) int {
+	fs := (*structType)(unsafe.Pointer(t)).fields
+	for i, f := range fs {
+		if f.name.name() == name {
+			return i
+		}
+	}
+	return 0
 }
 
 // IndexTag returns the tag of the field at index i in a struct TYPE
 func (t *TYPE) IndexTag(i int) string {
 	return (*structType)(unsafe.Pointer(t)).fields[i].name.tag()
+}
+
+// FieldTag returns the tag of the field with name in a struct TYPE
+func (t *TYPE) FieldTag(name string) string {
+	fs := (*structType)(unsafe.Pointer(t)).fields
+	for _, f := range fs {
+		if f.name.name() == name {
+			return f.name.tag()
+		}
+	}
+	return ""
+}
+
+// IndexTagValue returns the value of the tag of the field at index i in a struct TYPE
+func (t *TYPE) IndexTagValue(i int, tag string) string {
+	return getTagValue(t.IndexTag(i), tag, 34)
+}
+
+// NameTagValue returns the value of the tag of the field at index i in a struct TYPE
+func (t *TYPE) NameTagValue(name string, tag string) string {
+	return getTagValue(t.FieldTag(name), tag, 34)
 }
 
 // ForFields iterates over the fields of a struct TYPE and calls
@@ -376,31 +408,6 @@ func (t *TYPE) ForFields(f func(i int, n string, typ *TYPE) (brake bool)) {
 			break
 		}
 	}
-}
-
-// IndexTagValue returns the value of the tag of the field at index i in a struct TYPE
-func (t *TYPE) IndexTagValue(i int, tag string) string {
-	return getTagValue(t.IndexTag(i), tag, 34)
-}
-
-// NameTagValue returns the value of the tag of the field at index i in a struct TYPE
-func (t *TYPE) NameTagValue(name string, tag string) string {
-	return getTagValue((*fieldType)(unsafe.Pointer(t.FieldByName(name))).name.tag(), tag, 34)
-}
-
-// FieldName returns the name of if a field TYPE
-func (t *TYPE) FieldName() string {
-	return (*fieldType)(unsafe.Pointer(t)).name.name()
-}
-
-// FieldTag returns the tag of if a field TYPE
-func (t *TYPE) FieldTag() string {
-	return (*fieldType)(unsafe.Pointer(t)).name.tag()
-}
-
-// TagValue returns the value of the tag in a field TYPE
-func (t *TYPE) TagValue(tag string) string {
-	return getTagValue((*fieldType)(unsafe.Pointer(t)).name.tag(), tag, 34)
 }
 
 // matchStructType compairs the structure of 2 structs
