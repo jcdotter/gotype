@@ -278,17 +278,17 @@ type stringHeader struct {
 type structType struct {
 	TYPE
 	pkgPath name
-	fields  []fieldType // sorted by offset
+	fields  []FieldType // sorted by offset
 }
 
-type fieldType struct {
+type FieldType struct {
 	name   name    // name is always non-empty
 	typ    *TYPE   // type of field
 	offset uintptr // byte offset of field
 }
 
 type interfaceType struct {
-	*TYPE
+	TYPE
 	PkgPath name      // import path
 	Methods []Imethod // sorted by hash
 }
@@ -323,39 +323,45 @@ func (t *TYPE) NumField() int {
 }
 
 // Field returns the TYPE of the field at index i in a struct TYPE
-func (t *TYPE) Field(i int) *TYPE {
-	return (*structType)(unsafe.Pointer(t)).fields[i].typ
+func (t *TYPE) Field(i int) *FieldType {
+	// fields array pointer = structType pointer + size of TYPE (48) + size of name (8)
+	// field pointer = fields array pointer + size of field (24) * index
+	return (*FieldType)(offseti(*(*unsafe.Pointer)(offset(unsafe.Pointer(t), 56)), i*24))
 }
 
 // FieldByName returns the TYPE of the field with name in a struct TYPE
-func (t *TYPE) FieldByName(name string) *TYPE {
+func (t *TYPE) FieldByName(name string) *FieldType {
 	fs := (*structType)(unsafe.Pointer(t)).fields
-	for _, f := range fs {
+	for i, f := range fs {
 		if f.name.name() == name {
-			return f.typ
+			return t.Field(i)
 		}
 	}
 	return nil
 }
 
 // FieldByTag returns the TYPE of the field with tag value in a struct TYPE
-func (t *TYPE) FieldByTag(tag string, value string) *TYPE {
+func (t *TYPE) FieldByTag(tag string, value string) *FieldType {
 	fs := (*structType)(unsafe.Pointer(t)).fields
-	for _, f := range fs {
+	for i, f := range fs {
 		v := getTagValue(f.name.tag(), tag, 34)
 		if v == value {
-			return f.typ
+			return t.Field(i)
 		}
 	}
 	return nil
 }
 
 // FieldByIndex returns the TYPE of the field at index in a struct TYPE
-func (t *TYPE) FieldByIndex(index []int) *TYPE {
-	if len(index) == 0 {
-		return t
+func (t *TYPE) FieldByIndex(index []int) *FieldType {
+	switch len(index) {
+	case 0:
+		return nil
+	case 1:
+		return t.Field(index[0])
+	default:
+		return t.Field(index[0]).typ.FieldByIndex(index[1:])
 	}
-	return (*structType)(unsafe.Pointer(t)).fields[index[0]].typ.FieldByIndex(index[1:])
 }
 
 // FieldName returns the name of the field at index i in a struct TYPE
@@ -402,9 +408,9 @@ func (t *TYPE) FieldTagValue(name string, tag string) string {
 
 // ForFields iterates over the fields of a struct TYPE and calls
 // the function f with the index and TYPE of each field
-func (t *TYPE) ForFields(f func(i int, n string, typ *TYPE) (brake bool)) {
-	for i, fld := range (*structType)(unsafe.Pointer(t)).fields {
-		if brake := f(i, fld.name.name(), fld.typ); brake {
+func (t *TYPE) ForFields(f func(i int, f *FieldType) (brake bool)) {
+	for i := range (*structType)(unsafe.Pointer(t)).fields {
+		if brake := f(i, t.Field(i)); brake {
 			break
 		}
 	}
@@ -426,6 +432,35 @@ func matchStructType(x, y *TYPE) bool {
 		}
 	}
 	return false
+}
+
+// ------------------------------------------------------------ /
+// FIELD TYPE IMPLEMENTATION
+// custom implementation of golang struct field type
+// ------------------------------------------------------------ /
+
+func (f *FieldType) TYPE() *TYPE {
+	return f.typ
+}
+
+func (f *FieldType) String() string {
+	return f.Name()
+}
+
+func (f *FieldType) Name() string {
+	return f.name.name()
+}
+
+func (f *FieldType) Tag() string {
+	return f.name.tag()
+}
+
+func (f *FieldType) TagValue(tag string) string {
+	return getTagValue(f.name.tag(), tag, 34)
+}
+
+func (f *FieldType) Offset() uintptr {
+	return f.offset
 }
 
 // ------------------------------------------------------------ /

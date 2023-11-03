@@ -5,6 +5,7 @@
 package gotype
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -22,6 +23,13 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
+	//fmt.Println(unsafe.Sizeof(FieldType{}))
+	type test struct {
+		V1 string `json:"v1"`
+		V2 string `json:"v2"`
+	}
+	s := test{"s", "s"}
+	fmt.Println(TypeOf(s).Field(0).Tag())
 }
 
 func TestAll(t *testing.T) {
