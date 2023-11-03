@@ -395,8 +395,8 @@ func (t *TYPE) IndexTagValue(i int, tag string) string {
 	return getTagValue(t.IndexTag(i), tag, 34)
 }
 
-// NameTagValue returns the value of the tag of the field at index i in a struct TYPE
-func (t *TYPE) NameTagValue(name string, tag string) string {
+// FieldTagValue returns the value of the tag of the field with name in a struct TYPE
+func (t *TYPE) FieldTagValue(name string, tag string) string {
 	return getTagValue(t.FieldTag(name), tag, 34)
 }
 
