@@ -469,6 +469,16 @@ func (v VALUE) Extend(n int) VALUE {
 	panic("can only extend slice value")
 }
 
+// IsZero returns true if VALUE is the zero value
+func (v VALUE) IsZero() bool {
+	return v.Reflect().IsZero()
+}
+
+// IsNil returns true if VALUE is nil
+func (v VALUE) IsNil() bool {
+	return v.Reflect().IsNil()
+}
+
 // ------------------------------------------------------------ /
 // TYPE CONVERSION FUNCTIONS
 // implementation of functions to convert values to new types

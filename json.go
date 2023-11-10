@@ -137,7 +137,7 @@ func (j JSON) STRING() STRING {
 
 // Slice returns gotype JSON as []string
 func (j JSON) Slice() []any {
-	_, l := STRING(j).Unserialize()
+	_, l := STRING(j).UnmarshalJson()
 	return l
 }
 
@@ -148,7 +148,7 @@ func (j JSON) SLICE() SLICE {
 
 // Map returns gotype JSON as map[string]string
 func (j JSON) Map() map[string]any {
-	o, _ := STRING(j).Unserialize()
+	o, _ := STRING(j).UnmarshalJson()
 	return o
 }
 
@@ -169,8 +169,8 @@ func (j JSON) Empty() bool {
 }
 
 // Unserialize converts a gotype serialized JSON object to a map or slice, respectively
-func (j JSON) Unserialize() (object map[string]any, list []any) {
-	return STRING(j).Unserialize()
+func (j JSON) Unmarshal() (object map[string]any, list []any) {
+	return STRING(j).UnmarshalJson()
 }
 
 // Format retenders JSON as string with line breaks and indents,

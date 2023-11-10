@@ -899,12 +899,12 @@ func (f StrFormat) Format(s string) string {
 	}
 }
 
-func (s STRING) UnserializeMap(kvSep string, itemSep string) map[string]string {
-	return unserializeMap(string(s), CharToByte(itemSep), CharToByte(kvSep))
+func (s STRING) UnmarshalJsonMap(kvSep string, itemSep string) map[string]string {
+	return unmarshalJsonMap(string(s), CharToByte(itemSep), CharToByte(kvSep))
 }
 
-func (s STRING) UnserializeList(itemSep string) []string {
-	return unserializeList(string(s), CharToByte(itemSep))
+func (s STRING) UnmarshalJsonList(itemSep string) []string {
+	return unmarshalJsonList(string(s), CharToByte(itemSep))
 }
 
 func (s STRING) GetSerialValue(key string, kvSep string, itemSep string) (string, bool) {
@@ -919,7 +919,7 @@ func CharToByte(sep string) byte {
 	}
 }
 
-func unserializeMap(s string, elSep byte, kvSep byte) map[string]string {
+func unmarshalJsonMap(s string, elSep byte, kvSep byte) map[string]string {
 	l := len(s)
 	m := map[string]string{}
 	var key, value string
@@ -938,7 +938,7 @@ func unserializeMap(s string, elSep byte, kvSep byte) map[string]string {
 	return m
 }
 
-func unserializeList(s string, elSep byte) []string {
+func unmarshalJsonList(s string, elSep byte) []string {
 	l := len(s)
 	m := []string{}
 	var value string
@@ -1054,8 +1054,8 @@ func CoalesceStrings(strings ...string) (s string) {
 	return
 }
 
-// Unserialize converts a json serialized STRING to a map or slice, respectively
-func (s STRING) Unserialize() (object map[string]any, list []any) {
+// UnmarshalJson converts a json serialized STRING to a map or slice, respectively
+func (s STRING) UnmarshalJson() (object map[string]any, list []any) {
 	l := len(s)
 	start := s.skipWhitespace(0, l)
 	switch s[start] {
