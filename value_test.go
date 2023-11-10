@@ -23,13 +23,9 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	//fmt.Println(unsafe.Sizeof(FieldType{}))
-	type test struct {
-		V1 string `json:"v1"`
-		V2 string `json:"v2"`
-	}
-	s := test{"s", "s"}
-	fmt.Println(TypeOf(s).Field(0).Tag())
+	var f = func(s string) string { return s }
+	v := ValueOf(f)
+	fmt.Printf("%v\n", v.typ.Name())
 }
 
 func TestAll(t *testing.T) {

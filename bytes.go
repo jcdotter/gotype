@@ -294,6 +294,19 @@ func (b BYTES) MustUuid() {
 	}
 }
 
+// Escaped returns string with quote chars escaped
+func (b BYTES) Escaped(quote byte, esc byte) BYTES {
+	p := byte(0)
+	for i, c := range b {
+		if c == quote && p != esc {
+			b = append(append(b[:i], esc), b[i:]...)
+			i++
+		}
+		p = c
+	}
+	return b
+}
+
 // JoinByteSlices concatenates the bytes slices to create a new byte slice;
 // The separator sep is placed between elements in the resulting slice
 func JoinByteSlices(sep []byte, bytes [][]byte) []byte {
@@ -315,6 +328,11 @@ func JoinBytesSep(sep byte, bytes ...byte) []byte {
 // JoinBytesSep concatenates the bytes to create a new byte slice
 func JoinBytes(bytes ...byte) []byte {
 	return bytes
+}
+
+// RepeatBytes returns a new byte slice consisting of count copies of bytes
+func RepeatBytes(bytes []byte, n int) []byte {
+	return b.Repeat(bytes, n)
 }
 
 // BytesFixed returns the bytes from the value

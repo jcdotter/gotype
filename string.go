@@ -82,7 +82,7 @@ func (v VALUE) string() string {
 	case Chan:
 		return "*Channel"
 	case Func:
-		return `"` + fmt.Sprintf("%v", v.Interface()) + `"`
+		return `"` + fmt.Sprintf("%v", v.typ.Name()) + `"`
 	case Interface:
 		if *(*unsafe.Pointer)(v.ptr) == nil {
 			return "null"
