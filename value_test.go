@@ -28,7 +28,19 @@ func TestTest(t *testing.T) {
 	m.Format = true
 	m.Init()
 	//table := [][]string{{"Type", "Value"}}
-	for n, v := range getTestVars() {
+	v := []map[string]map[string]string{
+		{
+			"one": {"two": "three", "four": "five"},
+			"two": {"two": "three", "four": "five"},
+		},
+		{
+			"one": {"two": "three", "four": "five"},
+			"two": {"two": "three", "four": "five"},
+		},
+	}
+	b, _ := m.Marshal(v)
+	fmt.Println(string(b))
+	/* for n, v := range getTestVars() {
 		if n == "[2]map[string]string{2}" {
 			m.Reset()
 			b, _ := m.Marshal(v)
@@ -36,7 +48,7 @@ func TestTest(t *testing.T) {
 			fmt.Println("\n" + n + ":")
 			fmt.Println(string(b))
 		}
-	}
+	} */
 	/* SortByCol(table, 0)
 	test.PrintTable(table, true) */
 }

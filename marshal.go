@@ -16,7 +16,8 @@ import (
 // TODO:
 // [x] Test Indent Json
 // [x] Inc Length of Buffer
-// [ ] Test Yaml and Inline Yaml
+// [x] Test Inline Yaml
+// [ ] Test Yaml
 // [ ] Finish Unmarshal
 // [ ] Handle Comments
 // [ ] Test Special Characters
@@ -34,40 +35,45 @@ import (
 // ------------------------------------------------------------ /
 
 type Marshaller struct {
-	Type      string
-	Cursor    int
-	CurIndent int
-	Value     any
-	Len       int
-	Buffer,
-	Space,
-	lnBreak,
-	Indent,
-	Quote,
-	Escape,
-	Null,
-	ValEnd,
-	KeyEnd,
-	BlockCommentStart,
-	BlockCommentEnd,
-	LineCommentStart,
-	LineCommentEnd,
-	SliceStart,
-	SliceEnd,
-	SliceElem,
-	MapStart,
-	MapEnd []byte
-	Format,
-	Fspace,
-	hasDataBrackets,
-	inline,
-	QuotedKey,
-	QuotedString,
-	QuotedSpecial,
-	QuotedNum,
-	QuotedBool,
-	QuotdeNull bool
-	Inline *Marshaller
+	// marshaller state
+	cursor      int    // the current position in the buffer
+	curIndent   int    // the current indentation level
+	inline      bool   // true when marshalling in single line syntax
+	hasBrackets bool   // true when marshalling with brackets around data objects
+	value       any    // the value being marshalled
+	buffer      []byte // the buffer being marshalled to
+	len         int    // the length of the buffer
+	// marshalling syntax
+	Type              string // the type of marshaller. json, yaml, etc.
+	Space             []byte // the space characters
+	LineBreak         []byte // the line break characters
+	Indent            []byte // the indentation characters
+	Quote             []byte // the quote characters, first is default, additional are alternate
+	Escape            []byte // the escape characters for string special char escape
+	Null              []byte // the null value
+	ValEnd            []byte // the characters that separate values
+	KeyEnd            []byte // the characters that separate keys and values
+	BlockCommentStart []byte // the characters that start a block comment
+	BlockCommentEnd   []byte // the characters that end a block comment
+	LineCommentStart  []byte // the characters that start a single line comment
+	LineCommentEnd    []byte // the characters that end a single line comment
+	SliceStart        []byte // the characters that start a slice or array
+	SliceEnd          []byte // the characters that end a slice or array
+	SliceElem         []byte // the characters before each slice element
+	MapStart          []byte // the characters that start a hash map
+	MapEnd            []byte // the characters that end a hash map
+	// marshalling flags
+	Format           bool // when true, marshal with formatting, indentation, and line breaks
+	FormatWithSpaces bool // when true, marshal with space between keys and values
+	NoIndentFirst    bool // when true, do not indent first line of slice or map
+	CascadeOnlyDeep  bool // when true, marshal single-depth slices and maps with inline syntax
+	QuotedKey        bool // when true, marshal map keys with quotes
+	QuotedString     bool // when true, marshal strings with quotes
+	QuotedSpecial    bool // when true, marshal strings with quotes if they contain special characters
+	QuotedNum        bool // when true, marshal numbers with quotes
+	QuotedBool       bool // when true, marshal bools with quotes
+	QuotdeNull       bool // when true, marshal null with quotes
+	//Inline *Marshaller
 }
 
 // ------------------------------------------------------------ /
@@ -80,7 +86,8 @@ var (
 		Type:              "json",
 		QuotedKey:         true,
 		QuotedString:      true,
-		Fspace:            true,
+		FormatWithSpaces:  true,
+		CascadeOnlyDeep:   true,
 		Space:             []byte(" \t\n\v\f\r"),
 		Indent:            []byte("  "),
 		Quote:             []byte(`"`),
@@ -100,17 +107,18 @@ var (
 		Type:          "yaml",
 		Format:        true,
 		QuotedSpecial: true,
-		Space:         []byte(" \t\v\f\r"),
-		Indent:        []byte("  "),
+		//NoIndentFirst: true,
+		Space:  []byte(" \t\v\f\r"),
+		Indent: []byte("  "),
 		//lnBreak:          []byte(""),
-		Quote:            []byte(`"'`),
-		Escape:           []byte(`\`),
-		ValEnd:           []byte("\n"),
+		Quote:  []byte(`"'`),
+		Escape: []byte(`\`),
+		//ValEnd:           []byte("\n"),
 		KeyEnd:           []byte(":"),
 		LineCommentStart: []byte("#"),
 		LineCommentEnd:   []byte("\n"),
 		SliceElem:        []byte("- "),
-		Inline:           &MarshallerInlineYaml,
+		//Inline:           &MarshallerInlineYaml,
 	}
 	MarshallerInlineYaml = Marshaller{
 		Type:             "yaml",
@@ -147,14 +155,10 @@ func (m *Marshaller) Init() {
 		if m.Indent == nil {
 			m.Indent = []byte("  ")
 		}
-		if m.lnBreak == nil {
-			if m.ValEnd[0] == '\n' {
-				m.lnBreak = []byte("")
-			} else {
-				m.lnBreak = []byte("\n")
-			}
+		if m.LineBreak == nil {
+			m.LineBreak = []byte("\n")
 		}
-		if m.Fspace {
+		if m.FormatWithSpaces {
 			m.KeyEnd = append(m.KeyEnd, m.Space[0])
 			m.ValEnd = append(m.ValEnd, m.Space[0])
 		}
@@ -165,7 +169,7 @@ func (m *Marshaller) Init() {
 	if m.Escape == nil && m.Quote != nil {
 		m.Escape = []byte(`\`)
 	}
-	m.hasDataBrackets = !(m.MapStart == nil || m.MapEnd == nil || m.SliceStart == nil || m.SliceEnd == nil)
+	m.hasBrackets = !(m.MapStart == nil || m.MapEnd == nil || m.SliceStart == nil || m.SliceEnd == nil)
 }
 
 func (m *Marshaller) SetType(t string) {
@@ -173,11 +177,36 @@ func (m *Marshaller) SetType(t string) {
 }
 
 func (m *Marshaller) Reset() {
-	m.Buffer = []byte{}
-	m.Cursor = 0
-	m.CurIndent = 0
-	m.Len = 0
-	m.Value = nil
+	m.buffer = []byte{}
+	m.cursor = 0
+	m.curIndent = 0
+	m.len = 0
+	m.value = nil
+}
+
+// ------------------------------------------------------------ /
+// Getter Utilities
+// for getting non-exported state values from the marshaller
+// ------------------------------------------------------------ /
+
+func (m *Marshaller) Buffer() []byte {
+	return m.buffer
+}
+
+func (m *Marshaller) Cursor() int {
+	return m.cursor
+}
+
+func (m *Marshaller) CurIndent() int {
+	return m.curIndent
+}
+
+func (m *Marshaller) Len() int {
+	return m.len
+}
+
+func (m *Marshaller) Value() any {
+	return m.value
 }
 
 // ------------------------------------------------------------ /
@@ -290,14 +319,13 @@ func (m *Marshaller) MarshalNum(v VALUE) (bytes []byte, err error) {
 func (m *Marshaller) MarshalArray(a ARRAY, ancestry ...ancestor) ([]byte, error) {
 	if a.ptr == nil {
 		m.ToBuffer(m.Null)
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
 	if a.Len() == 0 {
 		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
-	i := m.inline
-	m.inline = !a.TYPE().HasDataElem()
+	i := m.SetInline(a.typ)
 	m.MarshalSliceStart()
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		m.MarshalNext(i)
@@ -306,8 +334,8 @@ func (m *Marshaller) MarshalArray(a ARRAY, ancestry ...ancestor) ([]byte, error)
 		return
 	})
 	m.MarshalSliceEnd()
-	m.inline = i
-	return m.Buffer, nil
+	m.UnsetInline(i)
+	return m.buffer, nil
 }
 
 func (m *Marshaller) MarshalFunc(v VALUE) (bytes []byte, err error) {
@@ -332,14 +360,13 @@ func (m *Marshaller) MarshalInterface(v VALUE) (bytes []byte, err error) {
 func (m *Marshaller) MarshalMap(hm MAP, ancestry ...ancestor) ([]byte, error) {
 	if hm.ptr == nil {
 		m.ToBuffer(m.Null)
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
 	if hm.Len() == 0 {
 		m.ToBuffer(append(m.MapStart, m.MapEnd...))
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
-	i := m.inline
-	m.inline = !hm.TYPE().HasDataElem()
+	i := m.SetInline(hm.typ)
 	m.MarshaMapStart()
 	hm.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		m.MarshalNext(i)
@@ -348,21 +375,20 @@ func (m *Marshaller) MarshalMap(hm MAP, ancestry ...ancestor) ([]byte, error) {
 		return
 	})
 	m.MarshaMapEnd()
-	m.inline = i
-	return m.Buffer, nil
+	m.UnsetInline(i)
+	return m.buffer, nil
 }
 
 func (m *Marshaller) MarshalSlice(s SLICE, ancestry ...ancestor) ([]byte, error) {
 	if s.ptr == nil {
 		m.ToBuffer(m.Null)
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
 	if s.Len() == 0 {
 		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
-	i := m.inline
-	m.inline = !s.TYPE().HasDataElem()
+	i := m.SetInline(s.typ)
 	m.MarshalSliceStart()
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		m.MarshalNext(i)
@@ -371,8 +397,8 @@ func (m *Marshaller) MarshalSlice(s SLICE, ancestry ...ancestor) ([]byte, error)
 		return
 	})
 	m.MarshalSliceEnd()
-	m.inline = i
-	return m.Buffer, nil
+	m.UnsetInline(i)
+	return m.buffer, nil
 }
 
 func (m *Marshaller) MarshalString(s string) ([]byte, error) {
@@ -388,20 +414,19 @@ func (m *Marshaller) MarshalString(s string) ([]byte, error) {
 		b = append(append(q, BYTES(b).Escaped(q[0], m.Escape[0])...), q...)
 	}
 	m.ToBuffer(b)
-	return m.Buffer, nil
+	return m.buffer, nil
 }
 
 func (m *Marshaller) MarshalStruct(s STRUCT, ancestry ...ancestor) ([]byte, error) {
 	if s.ptr == nil {
 		m.ToBuffer(m.Null)
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
 	if s.Len() == 0 {
 		m.ToBuffer(append(m.MapStart, m.MapEnd...))
-		return m.Buffer, nil
+		return m.buffer, nil
 	}
-	il := m.inline
-	m.inline = !s.TYPE().HasDataElem()
+	il := m.SetInline(s.typ)
 	m.MarshaMapStart()
 	fields, i := s.TagIndex(m.Type), 0
 	for k, f := range fields {
@@ -411,8 +436,8 @@ func (m *Marshaller) MarshalStruct(s STRUCT, ancestry ...ancestor) ([]byte, erro
 		i++
 	}
 	m.MarshaMapEnd()
-	m.inline = il
-	return m.Buffer, nil
+	m.UnsetInline(il)
+	return m.buffer, nil
 }
 
 func (m *Marshaller) MarshalUnsafePointer(p unsafe.Pointer) (bytes []byte, err error) {
@@ -436,23 +461,23 @@ func (m *Marshaller) MarshalBytes(b BYTES) (bytes []byte, err error) {
 }
 
 func (m *Marshaller) MarshalSliceStart() {
-	m.CurIndent++
+	m.curIndent++
 	m.ToBuffer(m.SliceStart)
 }
 
 func (m *Marshaller) MarshalSliceEnd() {
-	m.CurIndent--
+	m.curIndent--
 	m.MarshalNext(-1)
 	m.ToBuffer(m.SliceEnd)
 }
 
 func (m *Marshaller) MarshaMapStart() {
-	m.CurIndent++
+	m.curIndent++
 	m.ToBuffer(m.MapStart)
 }
 
 func (m *Marshaller) MarshaMapEnd() {
-	m.CurIndent--
+	m.curIndent--
 	m.MarshalNext(-1)
 	m.ToBuffer(m.MapEnd)
 }
@@ -465,7 +490,7 @@ func (m *Marshaller) MarshalKey(k []byte) {
 	if m.KeyEnd != nil {
 		k = append(k, m.KeyEnd...)
 	}
-	m.Buffer = append(m.Buffer, k...)
+	m.buffer = append(m.buffer, k...)
 }
 
 func (m *Marshaller) MarshalNext(i ...int) {
@@ -476,24 +501,38 @@ func (m *Marshaller) MarshalNext(i ...int) {
 	if idx > 0 {
 		m.ToBuffer(m.ValEnd)
 	}
-	if m.Format /* && !m.inline */ {
-		m.ToBuffer(m.lnBreak)
-		m.MarshalIndent()
+	if m.Format && !m.inline {
+		m.ToBuffer(m.LineBreak)
+		if !m.NoIndentFirst || idx > 0 {
+			m.MarshalIndent()
+		}
 	}
 }
 
 func (m *Marshaller) MarshalIndent() {
-	i := m.CurIndent
-	if !m.hasDataBrackets && i > 0 {
+	i := m.curIndent
+	if !m.hasBrackets && i > 0 {
 		i--
 	}
 	m.ToBuffer(bytes.Repeat(m.Indent, i))
 }
 
+func (m *Marshaller) SetInline(t *TYPE) bool {
+	i := m.inline
+	if m.CascadeOnlyDeep {
+		m.inline = !t.HasDataElem()
+	}
+	return i
+}
+
+func (m *Marshaller) UnsetInline(i bool) {
+	m.inline = i
+}
+
 func (m *Marshaller) ToBuffer(b []byte) {
 	if b != nil {
-		m.Buffer = append(m.Buffer, b...)
-		m.Len = len(m.Buffer)
+		m.buffer = append(m.buffer, b...)
+		m.len = len(m.buffer)
 	}
 }
 
@@ -517,9 +556,9 @@ func IsSpecialChar(b byte) bool {
 
 func (m *Marshaller) UnmarshalQuote() []byte {
 	if m.IsQuote() {
-		s := m.Cursor
-		q := m.Buffer[s]
-		for m.Cursor < m.Len {
+		s := m.cursor
+		q := m.buffer[s]
+		for m.cursor < m.len {
 			if m.IsEscape() {
 				m.Inc(2)
 				continue
@@ -530,21 +569,21 @@ func (m *Marshaller) UnmarshalQuote() []byte {
 			}
 
 		}
-		return m.Buffer[s:m.Cursor]
+		return m.buffer[s:m.cursor]
 	}
 	return nil
 }
 
 func (m *Marshaller) ParseWhitespace() []byte {
 	if m.IsSpace() {
-		s := m.Cursor
-		for m.Cursor < m.Len {
+		s := m.cursor
+		for m.cursor < m.len {
 			if !m.IsSpace() {
 				break
 			}
 			m.Inc()
 		}
-		return m.Buffer[s:m.Cursor]
+		return m.buffer[s:m.cursor]
 	}
 	return nil
 }
@@ -554,73 +593,73 @@ func (m *Marshaller) ByteIs(b byte) bool {
 }
 
 func (m *Marshaller) Byte() byte {
-	if m.Len == 0 {
+	if m.len == 0 {
 		return 0
 	}
-	return m.Buffer[m.Cursor]
+	return m.buffer[m.cursor]
 }
 
 func (m *Marshaller) Inc(i ...int) {
 	if i == nil {
-		m.Cursor++
+		m.cursor++
 		return
 	}
-	m.Cursor += i[0]
+	m.cursor += i[0]
 }
 
 func (m *Marshaller) IsSpace() bool {
-	return InBytes(m.Buffer[m.Cursor], m.Space)
+	return InBytes(m.buffer[m.cursor], m.Space)
 }
 
 func (m *Marshaller) IsIndent() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.Indent)], m.Indent)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.Indent)], m.Indent)
 }
 
 func (m *Marshaller) IsQuote() bool {
-	return InBytes(m.Buffer[m.Cursor], m.Quote)
+	return InBytes(m.buffer[m.cursor], m.Quote)
 }
 
 func (m *Marshaller) IsEscape() bool {
-	return InBytes(m.Buffer[m.Cursor], m.Escape)
+	return InBytes(m.buffer[m.cursor], m.Escape)
 }
 
 func (m *Marshaller) IsValEnd() bool {
-	return InBytes(m.Buffer[m.Cursor], m.ValEnd)
+	return InBytes(m.buffer[m.cursor], m.ValEnd)
 }
 
 func (m *Marshaller) IsKeyEnd() bool {
-	return InBytes(m.Buffer[m.Cursor], m.KeyEnd)
+	return InBytes(m.buffer[m.cursor], m.KeyEnd)
 }
 
 func (m *Marshaller) IsBlockCommentStart() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.BlockCommentStart)], m.BlockCommentStart)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.BlockCommentStart)], m.BlockCommentStart)
 }
 
 func (m *Marshaller) IsBlockCommentEnd() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.BlockCommentEnd)], m.BlockCommentEnd)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.BlockCommentEnd)], m.BlockCommentEnd)
 }
 func (m *Marshaller) IsLineCommentStart() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.LineCommentStart)], m.LineCommentStart)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.LineCommentStart)], m.LineCommentStart)
 }
 
 func (m *Marshaller) IsLineCommentEnd() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.LineCommentEnd)], m.LineCommentEnd)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.LineCommentEnd)], m.LineCommentEnd)
 }
 
 func (m *Marshaller) IsSliceStart() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.SliceStart)], m.SliceStart)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.SliceStart)], m.SliceStart)
 }
 
 func (m *Marshaller) IsSliceEnd() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.SliceEnd)], m.SliceEnd)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.SliceEnd)], m.SliceEnd)
 }
 
 func (m *Marshaller) IsMapStart() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.MapStart)], m.MapStart)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.MapStart)], m.MapStart)
 }
 
 func (m *Marshaller) IsMapEnd() bool {
-	return MatchBytes(m.Buffer[m.Cursor:m.Cursor+len(m.MapEnd)], m.MapEnd)
+	return MatchBytes(m.buffer[m.cursor:m.cursor+len(m.MapEnd)], m.MapEnd)
 }
 
 func MatchBytes(a, b []byte) bool {
