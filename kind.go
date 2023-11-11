@@ -161,6 +161,10 @@ func (k KIND) IsNumeric() bool {
 		k == Float32 || k == Float64
 }
 
+func (k KIND) IsData() bool {
+	return k == Array || k == Chan || k == Map || k == Slice || k == Struct || k == Bytes || k == Interface
+}
+
 func (k KIND) CanNil() bool {
 	return k == Array || k == Interface || k == Map || k == Pointer || k == Slice || k == Struct
 }

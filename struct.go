@@ -365,7 +365,7 @@ func (s *STRUCT) FieldIndex() (index map[string]FIELD) {
 func (s *STRUCT) TagIndex(tag string) map[string]FIELD {
 	hasTag, index, fIndex := true, map[string]FIELD{}, map[string]FIELD{}
 	s.ForFields(true, func(i int, f FIELD) (brake bool) {
-		index[f.name] = f
+		fIndex[f.name] = f
 		if hasTag {
 			tval := getTagValue(f.rawtag, tag, `"`[0])
 			if _, found := index[tval]; tval == "" || found {

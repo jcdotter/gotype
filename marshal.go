@@ -13,8 +13,24 @@ import (
 )
 
 // ------------------------------------------------------------ /
-// Marshaller
-// a generic marshaller
+// TODO:
+// [x] Test Indent Json
+// [x] Inc Length of Buffer
+// [ ] Test Yaml and Inline Yaml
+// [ ] Finish Unmarshal
+// [ ] Handle Comments
+// [ ] Test Special Characters
+// [ ] Handle Recursive Subvalues
+// [ ] Remove Serialize functions
+//     [ ] Add Yaml Type
+//     [ ] Update JSON Type
+//     [ ] Update Testing to use Marshaller
+// ------------------------------------------------------------ /
+
+// ------------------------------------------------------------ /
+// MARSHALLER IMPLEMENTATION
+// a generic marshaller for serializing and deserializing
+// golang values to and from []byte in a specific format
 // ------------------------------------------------------------ /
 
 type Marshaller struct {
@@ -25,6 +41,7 @@ type Marshaller struct {
 	Len       int
 	Buffer,
 	Space,
+	lnBreak,
 	Indent,
 	Quote,
 	Escape,
@@ -37,19 +54,24 @@ type Marshaller struct {
 	LineCommentEnd,
 	SliceStart,
 	SliceEnd,
+	SliceElem,
 	MapStart,
 	MapEnd []byte
-	UseIndent,
+	Format,
+	Fspace,
+	hasDataBrackets,
+	inline,
 	QuotedKey,
 	QuotedString,
 	QuotedSpecial,
 	QuotedNum,
 	QuotedBool,
 	QuotdeNull bool
+	Inline *Marshaller
 }
 
 // ------------------------------------------------------------ /
-// Presets
+// PRESET MARSHALLERS
 // JSON, YAML...
 // ------------------------------------------------------------ /
 
@@ -58,6 +80,7 @@ var (
 		Type:              "json",
 		QuotedKey:         true,
 		QuotedString:      true,
+		Fspace:            true,
 		Space:             []byte(" \t\n\v\f\r"),
 		Indent:            []byte("  "),
 		Quote:             []byte(`"`),
@@ -74,32 +97,30 @@ var (
 		MapEnd:            []byte("}"),
 	}
 	MarshallerYaml = Marshaller{
-		Type:             "yaml",
-		UseIndent:        true,
-		QuotedSpecial:    true,
-		Space:            []byte(" \t\v\f\r"),
-		Indent:           []byte("  "),
+		Type:          "yaml",
+		Format:        true,
+		QuotedSpecial: true,
+		Space:         []byte(" \t\v\f\r"),
+		Indent:        []byte("  "),
+		//lnBreak:          []byte(""),
 		Quote:            []byte(`"'`),
 		Escape:           []byte(`\`),
 		ValEnd:           []byte("\n"),
-		KeyEnd:           []byte(":\n"),
+		KeyEnd:           []byte(":"),
 		LineCommentStart: []byte("#"),
 		LineCommentEnd:   []byte("\n"),
-		SliceStart:       []byte("- "),
-		SliceEnd:         []byte("]"),
-		MapStart:         []byte("{"),
-		MapEnd:           []byte("}"),
+		SliceElem:        []byte("- "),
+		Inline:           &MarshallerInlineYaml,
 	}
 	MarshallerInlineYaml = Marshaller{
 		Type:             "yaml",
-		QuotedKey:        true,
 		QuotedSpecial:    true,
 		Space:            []byte(" \t\v\f\r"),
 		Indent:           []byte("  "),
 		Quote:            []byte(`"'`),
 		Escape:           []byte(`\`),
-		ValEnd:           []byte(","),
-		KeyEnd:           []byte(":"),
+		ValEnd:           []byte(", "),
+		KeyEnd:           []byte(": "),
 		LineCommentStart: []byte("#"),
 		LineCommentEnd:   []byte("\n"),
 		SliceStart:       []byte("["),
@@ -108,6 +129,56 @@ var (
 		MapEnd:           []byte("}"),
 	}
 )
+
+// ------------------------------------------------------------ /
+// Init Utilities
+// methods for setting up the marshaller
+// ------------------------------------------------------------ /
+
+func (m *Marshaller) Init() {
+	m.Reset()
+	if m.Null == nil {
+		m.Null = []byte("null")
+	}
+	if m.Space == nil {
+		m.Space = []byte(" \t\n\v\f\r")
+	}
+	if m.Format {
+		if m.Indent == nil {
+			m.Indent = []byte("  ")
+		}
+		if m.lnBreak == nil {
+			if m.ValEnd[0] == '\n' {
+				m.lnBreak = []byte("")
+			} else {
+				m.lnBreak = []byte("\n")
+			}
+		}
+		if m.Fspace {
+			m.KeyEnd = append(m.KeyEnd, m.Space[0])
+			m.ValEnd = append(m.ValEnd, m.Space[0])
+		}
+	}
+	if m.Quote == nil && (m.QuotedString || m.QuotedKey || m.QuotedSpecial || m.QuotedNum || m.QuotedBool || m.QuotdeNull) {
+		m.Quote = []byte(`"`)
+	}
+	if m.Escape == nil && m.Quote != nil {
+		m.Escape = []byte(`\`)
+	}
+	m.hasDataBrackets = !(m.MapStart == nil || m.MapEnd == nil || m.SliceStart == nil || m.SliceEnd == nil)
+}
+
+func (m *Marshaller) SetType(t string) {
+	m.Type = t
+}
+
+func (m *Marshaller) Reset() {
+	m.Buffer = []byte{}
+	m.Cursor = 0
+	m.CurIndent = 0
+	m.Len = 0
+	m.Value = nil
+}
 
 // ------------------------------------------------------------ /
 // Marshal Utilities
@@ -141,15 +212,19 @@ func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) ([]byte, error) {
 	case Slice:
 		return m.MarshalSlice((SLICE)(v), ancestry...)
 	case String:
-		return m.MarshalString(v.String())
+		return m.MarshalString(*(*string)(v.ptr))
 	case Struct:
 		return m.MarshalStruct((STRUCT)(v), ancestry...)
 	case UnsafePointer:
+		return m.MarshalUnsafePointer(*(*unsafe.Pointer)(v.ptr))
 	case Field:
+		return m.MarshalField(*(*FIELD)(unsafe.Pointer(&v)))
 	case Time:
+		return m.MarshalTime(*(*TIME)(v.ptr))
 	case Uuid:
+		return m.MarshalUuid(*(*UUID)(v.ptr))
 	case Bytes:
-		return m.MarshalString(string(v.Bytes()))
+		return m.MarshalBytes(*(*BYTES)(v.ptr))
 	default:
 		return nil, errors.New("cannot marshal type '" + v.typ.String() + "'")
 	}
@@ -221,14 +296,17 @@ func (m *Marshaller) MarshalArray(a ARRAY, ancestry ...ancestor) ([]byte, error)
 		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
 		return m.Buffer, nil
 	}
+	i := m.inline
+	m.inline = !a.TYPE().HasDataElem()
 	m.MarshalSliceStart()
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		m.CurIndent++
+		m.MarshalNext(i)
+		m.ToBuffer(m.SliceElem)
 		m.marshal(v)
-		m.CurIndent--
 		return
 	})
 	m.MarshalSliceEnd()
+	m.inline = i
 	return m.Buffer, nil
 }
 
@@ -260,15 +338,17 @@ func (m *Marshaller) MarshalMap(hm MAP, ancestry ...ancestor) ([]byte, error) {
 		m.ToBuffer(append(m.MapStart, m.MapEnd...))
 		return m.Buffer, nil
 	}
+	i := m.inline
+	m.inline = !hm.TYPE().HasDataElem()
 	m.MarshaMapStart()
 	hm.ForEach(func(i int, k string, v VALUE) (brake bool) {
+		m.MarshalNext(i)
 		m.MarshalKey([]byte(k))
-		m.CurIndent++
 		m.marshal(v)
-		m.CurIndent--
 		return
 	})
 	m.MarshaMapEnd()
+	m.inline = i
 	return m.Buffer, nil
 }
 
@@ -281,14 +361,17 @@ func (m *Marshaller) MarshalSlice(s SLICE, ancestry ...ancestor) ([]byte, error)
 		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
 		return m.Buffer, nil
 	}
+	i := m.inline
+	m.inline = !s.TYPE().HasDataElem()
 	m.MarshalSliceStart()
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		m.CurIndent++
+		m.MarshalNext(i)
+		m.ToBuffer(m.SliceElem)
 		m.marshal(v)
-		m.CurIndent--
 		return
 	})
 	m.MarshalSliceEnd()
+	m.inline = i
 	return m.Buffer, nil
 }
 
@@ -317,40 +400,61 @@ func (m *Marshaller) MarshalStruct(s STRUCT, ancestry ...ancestor) ([]byte, erro
 		m.ToBuffer(append(m.MapStart, m.MapEnd...))
 		return m.Buffer, nil
 	}
+	il := m.inline
+	m.inline = !s.TYPE().HasDataElem()
 	m.MarshaMapStart()
-	fields := s.TagIndex(m.Type)
+	fields, i := s.TagIndex(m.Type), 0
 	for k, f := range fields {
+		m.MarshalNext(i)
 		m.MarshalKey([]byte(k))
-		m.CurIndent++
 		m.marshal(f.VALUE())
-		m.CurIndent--
+		i++
 	}
 	m.MarshaMapEnd()
+	m.inline = il
 	return m.Buffer, nil
 }
 
+func (m *Marshaller) MarshalUnsafePointer(p unsafe.Pointer) (bytes []byte, err error) {
+	return m.MarshalString(fmt.Sprintf("%p", p))
+}
+
+func (m *Marshaller) MarshalField(f FIELD) (bytes []byte, err error) {
+	return m.marshal(f.VALUE())
+}
+
+func (m *Marshaller) MarshalTime(t TIME) (bytes []byte, err error) {
+	return m.MarshalString(t.String())
+}
+
+func (m *Marshaller) MarshalUuid(u UUID) (bytes []byte, err error) {
+	return m.MarshalString(u.String())
+}
+
+func (m *Marshaller) MarshalBytes(b BYTES) (bytes []byte, err error) {
+	return m.MarshalString(string(b))
+}
+
 func (m *Marshaller) MarshalSliceStart() {
-	m.ToBuffer(m.SliceStart)
 	m.CurIndent++
-	m.MarshalNext()
+	m.ToBuffer(m.SliceStart)
 }
 
 func (m *Marshaller) MarshalSliceEnd() {
 	m.CurIndent--
-	m.MarshalNext()
-	m.ToBuffer(m.SliceStart)
+	m.MarshalNext(-1)
+	m.ToBuffer(m.SliceEnd)
 }
 
 func (m *Marshaller) MarshaMapStart() {
-	m.ToBuffer(m.MapStart)
 	m.CurIndent++
-	m.MarshalNext()
+	m.ToBuffer(m.MapStart)
 }
 
 func (m *Marshaller) MarshaMapEnd() {
 	m.CurIndent--
-	m.MarshalNext()
-	m.ToBuffer(m.MapStart)
+	m.MarshalNext(-1)
+	m.ToBuffer(m.MapEnd)
 }
 
 func (m *Marshaller) MarshalKey(k []byte) {
@@ -364,15 +468,33 @@ func (m *Marshaller) MarshalKey(k []byte) {
 	m.Buffer = append(m.Buffer, k...)
 }
 
-func (m *Marshaller) MarshalNext() {
-	if m.UseIndent && m.Indent != nil {
-		m.ToBuffer([]byte("\n"))
-		m.ToBuffer(bytes.Repeat(m.Indent, m.CurIndent))
+func (m *Marshaller) MarshalNext(i ...int) {
+	idx := 1
+	if i != nil {
+		idx = i[0]
+	}
+	if idx > 0 {
+		m.ToBuffer(m.ValEnd)
+	}
+	if m.Format /* && !m.inline */ {
+		m.ToBuffer(m.lnBreak)
+		m.MarshalIndent()
 	}
 }
 
+func (m *Marshaller) MarshalIndent() {
+	i := m.CurIndent
+	if !m.hasDataBrackets && i > 0 {
+		i--
+	}
+	m.ToBuffer(bytes.Repeat(m.Indent, i))
+}
+
 func (m *Marshaller) ToBuffer(b []byte) {
-	m.Buffer = append(m.Buffer, b...)
+	if b != nil {
+		m.Buffer = append(m.Buffer, b...)
+		m.Len = len(m.Buffer)
+	}
 }
 
 func ContainsSpecial(s string) bool {

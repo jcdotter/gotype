@@ -165,6 +165,26 @@ func (t *TYPE) Elem() *TYPE {
 	return t
 }
 
+// IsData returns true if the TYPE stores data
+// which includes Array, Chan, Map, Slice, Struct, Bytes, Interface
+// or is a pointer to one these types
+func (t *TYPE) IsData() bool {
+	k := t.Kind()
+	return k == Array || k == Chan || k == Map || k == Slice || k == Struct || k == Bytes || k == Interface ||
+		(k == Pointer && t.Elem().IsData())
+}
+
+func (t *TYPE) HasDataElem() bool {
+	switch t.Kind() {
+	case Pointer:
+		return t.Elem().HasDataElem()
+	case Struct:
+		return t.HasDataField()
+	default:
+		return t.Elem().IsData()
+	}
+}
+
 // String returns the string representation of the TYPE
 func (t *TYPE) String() string {
 	return t.Name()
@@ -414,6 +434,20 @@ func (t *TYPE) ForFields(f func(i int, f *FieldType) (brake bool)) {
 			break
 		}
 	}
+}
+
+// HasDataField returns true if the struct TYPE has a field with a data type
+// of array, chan, map, slice, struct, bytes or interface
+func (t *TYPE) HasDataField() bool {
+	has := false
+	t.ForFields(func(i int, f *FieldType) (brake bool) {
+		if f.typ.IsData() {
+			has = true
+			return true
+		}
+		return
+	})
+	return has
 }
 
 // matchStructType compairs the structure of 2 structs

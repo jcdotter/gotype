@@ -23,9 +23,22 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	var f = func(s string) string { return s }
-	v := ValueOf(f)
-	fmt.Printf("%v\n", v.typ.Name())
+	m := MarshallerYaml
+	//m = MarshallerJson
+	m.Format = true
+	m.Init()
+	//table := [][]string{{"Type", "Value"}}
+	for n, v := range getTestVars() {
+		if n == "[2]map[string]string{2}" {
+			m.Reset()
+			b, _ := m.Marshal(v)
+			//table = append(table, []string{n, string(b)})
+			fmt.Println("\n" + n + ":")
+			fmt.Println(string(b))
+		}
+	}
+	/* SortByCol(table, 0)
+	test.PrintTable(table, true) */
 }
 
 func TestAll(t *testing.T) {
