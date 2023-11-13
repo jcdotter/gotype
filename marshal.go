@@ -17,7 +17,9 @@ import (
 // [x] Test Indent Json
 // [x] Inc Length of Buffer
 // [x] Test Inline Yaml
-// [ ] Test Yaml
+// [ ] Test Yaml:
+//	   - next: bracket, break, indent. (no bracket, no break on first, no indent on first on slice)
+//     - slice: no brack, no break, no indent
 // [ ] Finish Unmarshal
 // [ ] Handle Comments
 // [ ] Test Special Characters
@@ -104,17 +106,17 @@ var (
 		MapEnd:            []byte("}"),
 	}
 	MarshallerYaml = Marshaller{
-		Type:          "yaml",
-		Format:        true,
+		Type: "yaml",
+		//Format:        true,
 		QuotedSpecial: true,
-		//NoIndentFirst: true,
-		Space:  []byte(" \t\v\f\r"),
-		Indent: []byte("  "),
+		NoIndentFirst: true,
+		Space:         []byte(" \t\v\f\r"),
+		Indent:        []byte("  "),
 		//lnBreak:          []byte(""),
-		Quote:  []byte(`"'`),
-		Escape: []byte(`\`),
-		//ValEnd:           []byte("\n"),
-		KeyEnd:           []byte(":"),
+		Quote:            []byte(`"'`),
+		Escape:           []byte(`\`),
+		ValEnd:           []byte("\n"),
+		KeyEnd:           []byte(":\n"),
 		LineCommentStart: []byte("#"),
 		LineCommentEnd:   []byte("\n"),
 		SliceElem:        []byte("- "),
@@ -493,7 +495,7 @@ func (m *Marshaller) MarshalKey(k []byte) {
 	m.buffer = append(m.buffer, k...)
 }
 
-func (m *Marshaller) MarshalNext(i ...int) {
+/* func (m *Marshaller) MarshalNext(i ...int) {
 	idx := 1
 	if i != nil {
 		idx = i[0]
@@ -506,6 +508,20 @@ func (m *Marshaller) MarshalNext(i ...int) {
 		if !m.NoIndentFirst || idx > 0 {
 			m.MarshalIndent()
 		}
+	}
+} */
+
+func (m *Marshaller) MarshalNext(i ...int) {
+	idx := 1
+	if i != nil {
+		idx = i[0]
+	}
+	if idx > 0 {
+		m.ToBuffer(m.ValEnd)
+	}
+	if m.Format && !m.inline {
+		m.ToBuffer(m.LineBreak)
+		m.MarshalIndent()
 	}
 }
 
