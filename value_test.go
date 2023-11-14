@@ -24,8 +24,9 @@ var config = &test.Config{
 
 func TestTest(t *testing.T) {
 	m := MarshallerYaml
-	//m = MarshallerJson
+	//m := MarshallerInlineYaml
 	m.Format = true
+	//m.CascadeOnlyDeep = true
 	m.Init()
 	//table := [][]string{{"Type", "Value"}}
 	v := []map[string]map[string]string{
@@ -38,6 +39,20 @@ func TestTest(t *testing.T) {
 			"two": {"two": "three", "four": "five"},
 		},
 	}
+	/* v := map[string][]map[string]string{
+		"one": {
+			{"two": "three", "four": "five"},
+			{"two": "three", "four": "five"},
+		},
+		"two": {
+			{"two": "three", "four": "five"},
+			{"two": "three", "four": "five"},
+		},
+	} */
+	/* v := map[string][]string{
+		"one": {"two", "three", "four", "five"},
+		"two": {"two", "three", "four", "five"},
+	} */
 	b, _ := m.Marshal(v)
 	fmt.Println(string(b))
 	/* for n, v := range getTestVars() {
@@ -52,6 +67,15 @@ func TestTest(t *testing.T) {
 	/* SortByCol(table, 0)
 	test.PrintTable(table, true) */
 }
+
+/* func TestTest2(t *testing.T) {
+	var bytes []byte
+	var bytes1 = []byte("test")
+	var bytes2 []byte
+	bytes = append(append(bytes, bytes2...), bytes1...)
+	fmt.Println(string(bytes))
+	fmt.Println(bytes == nil)
+} */
 
 func TestAll(t *testing.T) {
 	TestValueOf(t)

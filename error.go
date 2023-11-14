@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	module = `types`
-	delim  = `.`
+	errorModule = `types`
+	errorDelim  = `.`
 )
 
 // GenError returns a formatted error message with source of error
@@ -35,12 +35,12 @@ func Source(i int) string {
 	pc, fl, ln, ok := runtime.Caller(int(i + 1))
 	if ok {
 		fs := strings.Split(fl, `/`)
-		gf := strings.Split(fs[len(fs)-1], delim)[0]
-		fn := strings.Split(runtime.FuncForPC(pc).Name(), delim)
-		pt := strings.Replace(fn[0], `/`, delim, -1)
+		gf := strings.Split(fs[len(fs)-1], errorDelim)[0]
+		fn := strings.Split(runtime.FuncForPC(pc).Name(), errorDelim)
+		pt := strings.Replace(fn[0], `/`, errorDelim, -1)
 		s := []string{pt, gf}
 		s = append(s, fn[1:]...)
-		return strings.Join(s, delim) + ` line ` + fmt.Sprint(ln)
+		return strings.Join(s, errorDelim) + ` line ` + fmt.Sprint(ln)
 	}
-	return module + delim + `unknown.source`
+	return errorModule + errorDelim + `unknown.source`
 }
