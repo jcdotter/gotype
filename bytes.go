@@ -326,8 +326,19 @@ func JoinBytesSep(sep byte, bytes ...byte) []byte {
 }
 
 // JoinBytesSep concatenates the bytes to create a new byte slice
-func JoinBytes(bytes ...byte) []byte {
-	return bytes
+func JoinBytes(bytes ...[]byte) []byte {
+	var r []byte
+	for _, b := range bytes {
+		r = append(r, b...)
+	}
+	return CopyBytes(r)
+}
+
+// CopyBytes returns b in a new mem address
+func CopyBytes(b []byte) []byte {
+	c := make([]byte, len(b))
+	copy(c, b)
+	return c
 }
 
 // RepeatBytes returns a new byte slice consisting of count copies of bytes

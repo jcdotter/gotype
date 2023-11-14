@@ -345,17 +345,16 @@ func (m *Marshaller) MarshalArray(a ARRAY, ancestry ...ancestor) ([]byte, error)
 		return m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
 	}
 	m.IncDepth()
-	c := components{}
-	c.getSliceComponents(m, a.typ, ancestry...)
+	start, delim, end := m.SliceComponents(a.typ, ancestry...)
 	ancestry = append([]ancestor{{a.typ, uintptr(a.ptr)}}, ancestry...)
-	m.ToBuffer(c.start)
+	m.ToBuffer(start)
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		b, recursive := m.RecursiveValue(v, ancestry)
 		if recursive && b == nil {
 			return
 		}
 		if i > 0 {
-			m.ToBuffer(c.delim)
+			m.ToBuffer(delim)
 		}
 		if b != nil {
 			m.MarshalBytes(b)
@@ -365,7 +364,7 @@ func (m *Marshaller) MarshalArray(a ARRAY, ancestry ...ancestor) ([]byte, error)
 		return
 	})
 	m.DecDepth()
-	return m.ToBuffer(c.end)
+	return m.ToBuffer(end)
 }
 
 func (m *Marshaller) MarshalFunc(v VALUE) (bytes []byte, err error) {
@@ -414,9 +413,7 @@ func (m *Marshaller) MarshalMap(hm MAP, ancestry ...ancestor) ([]byte, error) {
 			m.MarshalBytes(b)
 			return
 		}
-		fmt.Printf("map delim before: %p, %v\n", *(*unsafe.Pointer)(unsafe.Pointer(&delim)), delim)
 		m.marshal(v, ancestry...)
-		fmt.Printf("map delim  after: %p, %v\n", *(*unsafe.Pointer)(unsafe.Pointer(&delim)), delim)
 		return
 	})
 	m.DecDepth()
@@ -434,29 +431,26 @@ func (m *Marshaller) MarshalSlice(s SLICE, ancestry ...ancestor) ([]byte, error)
 		return m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
 	}
 	m.IncDepth()
-	c := components{}
-	c.getSliceComponents(m, s.typ, ancestry...)
+	start, delim, end := m.SliceComponents(s.typ, ancestry...)
 	ancestry = append([]ancestor{{s.typ, uintptr(s.ptr)}}, ancestry...)
-	m.ToBuffer(c.start)
+	m.ToBuffer(start)
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		b, recursive := m.RecursiveValue(v, ancestry)
 		if recursive && b == nil {
 			return
 		}
 		if i > 0 {
-			m.ToBuffer(c.delim)
+			m.ToBuffer(delim)
 		}
 		if b != nil {
 			m.MarshalBytes(b)
 			return
 		}
-		fmt.Printf("slice delim before: %p, %v\n", *(*unsafe.Pointer)(unsafe.Pointer(&c.delim)), c.delim)
 		m.marshal(v, ancestry...)
-		fmt.Printf("slice delim  after: %p, %v\n", *(*unsafe.Pointer)(unsafe.Pointer(&c.delim)), c.delim)
 		return
 	})
 	m.DecDepth()
-	return m.ToBuffer(c.end)
+	return m.ToBuffer(end)
 }
 
 func (m *Marshaller) MarshalString(s string) ([]byte, error) {
@@ -530,17 +524,7 @@ func (m *Marshaller) MarshalBytes(b BYTES) (bytes []byte, err error) {
 	return m.MarshalString(string(b))
 }
 
-func (c *components) Init(m *Marshaller, t *TYPE, ancestry ...ancestor) {
-	switch t.Kind() {
-	case Array, Slice:
-		c.getSliceComponents(m, t, ancestry...)
-	case Map, Struct:
-		//c.getMapComponents(m, t, ancestry)
-	}
-}
-
-func (c *components) getSliceComponents(m *Marshaller, t *TYPE, ancestry ...ancestor) {
-	fmt.Println("call to slice components")
+func (m *Marshaller) SliceComponents(t *TYPE, ancestry ...ancestor) (start []byte, delim []byte, end []byte) {
 	inline := m.CascadeOnlyDeep && !t.HasDataElem()
 	mapItem := false
 	if ancestry != nil {
@@ -552,19 +536,18 @@ func (c *components) getSliceComponents(m *Marshaller, t *TYPE, ancestry ...ance
 		newline := lastline
 		if m.hasBrackets {
 			newline = append(newline, m.Indent...)
-			c.end = append(lastline, m.SliceEnd...)
+			end = JoinBytes(lastline, m.SliceEnd)
 		}
 		if m.NoFormatFirst && !mapItem {
-			c.start = append(m.SliceStart, m.SliceItem...)
+			start = JoinBytes(m.SliceStart, m.SliceItem)
 		} else {
-			c.start = append(append(m.SliceStart, newline...), m.SliceItem...)
+			start = JoinBytes(m.SliceStart, newline, m.SliceItem)
 		}
-		c.delim = append(append(m.ValEnd, newline...), m.SliceItem...)
+		delim = JoinBytes(m.ValEnd, newline, m.SliceItem)
 		return
 	}
-	c.start = m.SliceStart
-	c.delim = append(m.ValEnd, m.SliceItem...)
-	c.end = m.SliceEnd
+	start, delim, end = CopyBytes(m.SliceStart), JoinBytes(m.ValEnd, m.SliceItem), CopyBytes(m.SliceEnd)
+	return
 }
 
 func (m *Marshaller) MarshalSliceStart() {
@@ -580,7 +563,6 @@ func (m *Marshaller) MarshalSliceEnd() {
 }
 
 func (m *Marshaller) MapComponents(t *TYPE, ancestry []ancestor) (start []byte, delim []byte, end []byte) {
-	fmt.Println("call to map components")
 	inline := m.CascadeOnlyDeep && !t.HasDataElem()
 	mapItem := false
 	if ancestry != nil {
@@ -592,17 +574,18 @@ func (m *Marshaller) MapComponents(t *TYPE, ancestry []ancestor) (start []byte, 
 		newline := lastline
 		if m.hasBrackets {
 			newline = append(newline, m.Indent...)
-			end = append(lastline, m.MapEnd...)
+			end = JoinBytes(lastline, m.MapEnd)
 		}
 		if m.NoFormatFirst && !mapItem {
-			start = m.MapStart
+			start = CopyBytes(m.MapStart)
 		} else {
-			start = append(m.MapStart, newline...)
+			start = JoinBytes(m.MapStart, newline)
 		}
-		delim = append(m.ValEnd, newline...)
+		delim = JoinBytes(m.ValEnd, newline)
 		return
 	}
-	return m.SliceStart, m.ValEnd, m.SliceEnd
+	start, delim, end = CopyBytes(m.SliceStart), CopyBytes(m.ValEnd), CopyBytes(m.SliceEnd)
+	return
 }
 
 func (m *Marshaller) MarshaMapStart() {

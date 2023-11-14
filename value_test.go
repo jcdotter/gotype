@@ -29,7 +29,7 @@ func TestTest(t *testing.T) {
 	//m.CascadeOnlyDeep = true
 	m.Init()
 	//table := [][]string{{"Type", "Value"}}
-	v := []map[string]map[string]string{
+	/* v := []map[string]map[string]string{
 		{
 			"one": {"two": "three", "four": "five"},
 			"two": {"two": "three", "four": "five"},
@@ -38,7 +38,7 @@ func TestTest(t *testing.T) {
 			"one": {"two": "three", "four": "five"},
 			"two": {"two": "three", "four": "five"},
 		},
-	}
+	} */
 	/* v := map[string][]map[string]string{
 		"one": {
 			{"two": "three", "four": "five"},
@@ -49,10 +49,10 @@ func TestTest(t *testing.T) {
 			{"two": "three", "four": "five"},
 		},
 	} */
-	/* v := map[string][]string{
+	v := map[string][]string{
 		"one": {"two", "three", "four", "five"},
 		"two": {"two", "three", "four", "five"},
-	} */
+	}
 	b, _ := m.Marshal(v)
 	fmt.Println(string(b))
 	/* for n, v := range getTestVars() {
@@ -69,12 +69,14 @@ func TestTest(t *testing.T) {
 }
 
 /* func TestTest2(t *testing.T) {
-	var bytes []byte
-	var bytes1 = []byte("test")
-	var bytes2 []byte
-	bytes = append(append(bytes, bytes2...), bytes1...)
-	fmt.Println(string(bytes))
-	fmt.Println(bytes == nil)
+	var b1, b2 []byte
+	var bx = []byte("test")
+	b1 = append(b1, bx...)
+	u1 := *(*unsafe.Pointer)(unsafe.Pointer(&b1))
+	fmt.Println(u1, (*(*[4]byte)(u1)))
+	b2 = append(b2, bx...)
+	u2 := *(*unsafe.Pointer)(unsafe.Pointer(&b2))
+	fmt.Println(u2, (*(*[4]byte)(u2)))
 } */
 
 func TestAll(t *testing.T) {
