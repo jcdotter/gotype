@@ -493,3 +493,11 @@ func SortByCol(d [][]string, col int) {
 		return d[i][col] < d[j][col]
 	})
 }
+
+// Copy copies the contents of a slice into a new slice
+// at a new mem address and returns the new slice
+func Copy[T comparable](s []T) []T {
+	c := make([]T, len(s))
+	copy(c, s)
+	return c
+}

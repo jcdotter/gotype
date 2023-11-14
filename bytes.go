@@ -325,13 +325,9 @@ func JoinBytesSep(sep byte, bytes ...byte) []byte {
 	return s[:l-1]
 }
 
-// JoinBytesSep concatenates the bytes to create a new byte slice
-func JoinBytes(bytes ...[]byte) []byte {
-	var r []byte
-	for _, b := range bytes {
-		r = append(r, b...)
-	}
-	return CopyBytes(r)
+// AppendBytes appends bytes to a byte slice
+func AppendBytes(slices ...[]byte) []byte {
+	return b.Join(slices, nil)
 }
 
 // CopyBytes returns b in a new mem address

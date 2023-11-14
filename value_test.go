@@ -24,12 +24,12 @@ var config = &test.Config{
 
 func TestTest(t *testing.T) {
 	m := MarshallerYaml
-	//m := MarshallerInlineYaml
-	m.Format = true
+	m = MarshallerJson
+	//m.Format = true
 	//m.CascadeOnlyDeep = true
 	m.Init()
 	//table := [][]string{{"Type", "Value"}}
-	/* v := []map[string]map[string]string{
+	v1 := []map[string]map[string]string{
 		{
 			"one": {"two": "three", "four": "five"},
 			"two": {"two": "three", "four": "five"},
@@ -38,8 +38,12 @@ func TestTest(t *testing.T) {
 			"one": {"two": "three", "four": "five"},
 			"two": {"two": "three", "four": "five"},
 		},
-	} */
-	/* v := map[string][]map[string]string{
+	}
+	b, _ := m.Marshal(v1)
+	fmt.Println(string(b))
+	fmt.Println()
+	m.Reset()
+	v2 := map[string][]map[string]string{
 		"one": {
 			{"two": "three", "four": "five"},
 			{"two": "three", "four": "five"},
@@ -48,12 +52,16 @@ func TestTest(t *testing.T) {
 			{"two": "three", "four": "five"},
 			{"two": "three", "four": "five"},
 		},
-	} */
-	v := map[string][]string{
+	}
+	b, _ = m.Marshal(v2)
+	fmt.Println(string(b))
+	fmt.Println()
+	m.Reset()
+	v3 := map[string][]string{
 		"one": {"two", "three", "four", "five"},
 		"two": {"two", "three", "four", "five"},
 	}
-	b, _ := m.Marshal(v)
+	b, _ = m.Marshal(v3)
 	fmt.Println(string(b))
 	/* for n, v := range getTestVars() {
 		if n == "[2]map[string]string{2}" {
@@ -78,6 +86,23 @@ func TestTest(t *testing.T) {
 	u2 := *(*unsafe.Pointer)(unsafe.Pointer(&b2))
 	fmt.Println(u2, (*(*[4]byte)(u2)))
 } */
+
+func BenchmarkTest(b *testing.B) {
+	m := MarshallerYaml
+	m.Init()
+	v1 := map[string]string{
+		"one":   "two",
+		"two":   "two",
+		"three": "two",
+		"four":  "two",
+	}
+	var e []byte
+	for i := 0; i < b.N; i++ {
+		m.Reset()
+		e, _ = m.Marshal(v1)
+	}
+	e = e
+}
 
 func TestAll(t *testing.T) {
 	TestValueOf(t)
