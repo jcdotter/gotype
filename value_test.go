@@ -14,7 +14,7 @@ import (
 )
 
 var config = &test.Config{
-	//PrintTest:   true,
+	PrintTest:   true,
 	PrintFail:   true,
 	PrintTrace:  true,
 	PrintDetail: true,
@@ -39,8 +39,10 @@ func TestTest(t *testing.T) {
 			"two": {"two": "three", "four": "five"},
 		},
 	}
-	b, _ := m.Marshal(v1)
+	b := m.Marshal(v1)
 	fmt.Println(string(b))
+	s := m.Unmarshal().Slice()
+	fmt.Println(s)
 	fmt.Println()
 	m.Reset()
 	v2 := map[string][]map[string]string{
@@ -53,16 +55,34 @@ func TestTest(t *testing.T) {
 			{"two": "three", "four": "five"},
 		},
 	}
-	b, _ = m.Marshal(v2)
+	b = m.Marshal(v2)
 	fmt.Println(string(b))
+	h := m.Unmarshal().Map()
+	fmt.Println(h)
 	fmt.Println()
 	m.Reset()
 	v3 := map[string][]string{
 		"one": {"two", "three", "four", "five"},
 		"two": {"two", "three", "four", "five"},
 	}
-	b, _ = m.Marshal(v3)
+	b = m.Marshal(v3)
 	fmt.Println(string(b))
+	h = m.Unmarshal().Map()
+	fmt.Println(h)
+	fmt.Println()
+	m.Reset()
+	v4 := []string{"false", "false"}
+	b = m.Marshal(v4)
+	fmt.Println(string(b))
+	s = m.Unmarshal().Slice()
+	fmt.Println(s)
+	fmt.Println()
+	m.Reset()
+	v5 := s
+	b = m.Marshal(v5)
+	fmt.Println(string(b))
+	s = m.Unmarshal().Slice()
+	fmt.Println(s)
 	/* for n, v := range getTestVars() {
 		if n == "[2]map[string]string{2}" {
 			m.Reset()
@@ -71,21 +91,32 @@ func TestTest(t *testing.T) {
 			fmt.Println("\n" + n + ":")
 			fmt.Println(string(b))
 		}
-	} */
+	}
 	/* SortByCol(table, 0)
 	test.PrintTable(table, true) */
 }
 
-/* func TestTest2(t *testing.T) {
-	var b1, b2 []byte
-	var bx = []byte("test")
-	b1 = append(b1, bx...)
-	u1 := *(*unsafe.Pointer)(unsafe.Pointer(&b1))
-	fmt.Println(u1, (*(*[4]byte)(u1)))
-	b2 = append(b2, bx...)
-	u2 := *(*unsafe.Pointer)(unsafe.Pointer(&b2))
-	fmt.Println(u2, (*(*[4]byte)(u2)))
-} */
+func TestTest2(t *testing.T) {
+	c := "# this is a yaml comment\n"
+	y := c + `
+one: two
+three: 
+  - four
+  - five
+  - six:
+      # this is a yaml comment
+      seven: eight
+      nine: ten
+`
+	m := MarshallerYaml
+	m.Init()
+	m.Unmarshal([]byte(y))
+	fmt.Println(m.buffer)
+	fmt.Println(m.value)
+	fmt.Println(m.value.(map[string]any)["three"].([]any)[2].(map[string]any)["six"].(map[string]any)["nine"])
+	h := m.Unmarshal().Map()
+	fmt.Println(h)
+}
 
 func BenchmarkTest(b *testing.B) {
 	m := MarshallerYaml
@@ -99,7 +130,7 @@ func BenchmarkTest(b *testing.B) {
 	var e []byte
 	for i := 0; i < b.N; i++ {
 		m.Reset()
-		e, _ = m.Marshal(v1)
+		e = m.Marshal(v1)
 	}
 	e = e
 }
@@ -263,6 +294,65 @@ func TestValueSerializePrint(t *testing.T) {
 	for n, v := range getTestVars() {
 		val := ValueOf(v)
 		s := STRING(val.Serialize())
+		gt.False(s == "" || s.Contains(err), val.typ, n, s)
+	}
+}
+
+func TestValueMarshalJson(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).Marshal(Json)"
+	var (
+		s  = "s"
+		a  = [2]string{"s", "s"}
+		l  = []string{"s", "s"}
+		m  = map[string]string{"0": "s", "1": "s"}
+		d  = string_struct{"s", "s"}
+		a1 = [1]string{"s"}
+		d1 = string_struct_single{"s"}
+
+		pa  = [2]*string{&s, &s}
+		pl  = []*string{&s, &s}
+		pm  = map[string]*string{"0": &s, "1": &s}
+		pd  = string_ptr_struct{&s, &s}
+		pa1 = [1]*string{&s}
+		pd1 = string_ptr_struct_single{&s}
+	)
+	gt.Equal(`"s"`, ValueOf(s).Marshal(MarshallerJson).String(), "string")
+	gt.Equal(`["s","s"]`, ValueOf(a).Marshal(MarshallerJson).String(), "array")
+	gt.Equal(`["s","s"]`, ValueOf(l).Marshal(MarshallerJson).String(), "slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).Marshal(MarshallerJson).String(), "map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).Marshal(MarshallerJson).String(), "struct")
+	gt.Equal(`["s"]`, ValueOf(a1).Marshal(MarshallerJson).String(), "array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(d1).Marshal(MarshallerJson).String(), "struct(1)")
+
+	gt.Equal(`"s"`, ValueOf(&s).Marshal(MarshallerJson).String(), "*string")
+	gt.Equal(`["s","s"]`, ValueOf(&pa).Marshal(MarshallerJson).String(), "*array")
+	gt.Equal(`["s","s"]`, ValueOf(&pl).Marshal(MarshallerJson).String(), "*slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Marshal(MarshallerJson).String(), "*map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Marshal(MarshallerJson).String(), "*struct")
+	gt.Equal(`["s"]`, ValueOf(&pa1).Marshal(MarshallerJson).String(), "*array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Marshal(MarshallerJson).String(), "*struct(1)")
+
+	ms := MarshallerJson
+	ms.UnmarshalTyped = true
+	ms.Format = true
+	ms.Init()
+	for n, v := range getTestVars() {
+		js := ValueOf(v).Marshal(ms).String()
+		u := ms.Unmarshal().Value()
+		cjs := ValueOf(u).Marshal(ms).String()
+		gt.NotEqual("", js, n)
+		gt.Equal(js, cjs, n)
+	}
+}
+
+func TestValueMarshalPrint(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).Serialize() key: %s\n  value:\t%s"
+	err := "%!v(PANIC=String method: runtime error: invalid memory address or nil pointer dereference)"
+	for n, v := range getTestVars() {
+		val := ValueOf(v)
+		s := STRING(val.Marshal(MarshallerJson).String())
 		gt.False(s == "" || s.Contains(err), val.typ, n, s)
 	}
 }

@@ -441,3 +441,13 @@ func (m MAP) Scan(dest any, tags ...string) {
 func (m MAP) JSON() JSON {
 	return JSON(m.Serialize())
 }
+
+// Gmap returns gotype MAP as gotype Gmap
+func (m MAP) Gmap() Gmap {
+	gm := make(Gmap, m.Len())
+	m.ForEach(func(i int, k string, v VALUE) (brake bool) {
+		gm[i] = GmapEl{k, v}
+		return
+	})
+	return gm
+}

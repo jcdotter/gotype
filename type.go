@@ -180,6 +180,8 @@ func (t *TYPE) HasDataElem() bool {
 		return t.Elem().HasDataElem()
 	case Struct:
 		return t.HasDataField()
+	case Interface:
+		return true
 	default:
 		return t.Elem().IsData()
 	}

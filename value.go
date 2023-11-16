@@ -702,3 +702,35 @@ func (v VALUE) elemType() *TYPE {
 		return v.typ
 	}
 }
+
+func (v VALUE) HasDataElem() bool {
+	switch v.Kind() {
+	case Pointer:
+		return v.Elem().HasDataElem()
+	case Struct:
+		return v.InspectDataElems()
+	case Interface:
+		return v.SetType().HasDataElem()
+	default:
+		if v.typ.Elem().Kind() == Interface {
+			return v.InspectDataElems()
+		}
+		return v.typ.Elem().IsData()
+	}
+}
+
+func (v VALUE) InspectDataElems() bool {
+	dataEl := false
+	v.ForEach(func(i int, k string, e VALUE) (brake bool) {
+		if e.SetType().typ.IsData() {
+			dataEl = true
+			return true
+		}
+		return
+	})
+	return dataEl
+}
+
+func (v VALUE) IsData() bool {
+	return v.typ.IsData()
+}

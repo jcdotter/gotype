@@ -5,7 +5,7 @@
 package gotype
 
 import (
-	b "bytes"
+	bp "bytes"
 	"unsafe"
 )
 
@@ -307,10 +307,20 @@ func (b BYTES) Escaped(quote byte, esc byte) BYTES {
 	return b
 }
 
+// InBytes evaluates if BYTES slice matches any of the bytes slices
+func (b BYTES) InBytes(bytes ...[]byte) bool {
+	for _, x := range bytes {
+		if bp.Equal(b, x) {
+			return true
+		}
+	}
+	return false
+}
+
 // JoinByteSlices concatenates the bytes slices to create a new byte slice;
 // The separator sep is placed between elements in the resulting slice
 func JoinByteSlices(sep []byte, bytes [][]byte) []byte {
-	return b.Join(bytes, sep)
+	return bp.Join(bytes, sep)
 }
 
 // JoinBytesSep concatenates the bytes to create a new byte slice;
@@ -327,7 +337,7 @@ func JoinBytesSep(sep byte, bytes ...byte) []byte {
 
 // AppendBytes appends bytes to a byte slice
 func AppendBytes(slices ...[]byte) []byte {
-	return b.Join(slices, nil)
+	return bp.Join(slices, nil)
 }
 
 // CopyBytes returns b in a new mem address
@@ -339,7 +349,7 @@ func CopyBytes(b []byte) []byte {
 
 // RepeatBytes returns a new byte slice consisting of count copies of bytes
 func RepeatBytes(bytes []byte, n int) []byte {
-	return b.Repeat(bytes, n)
+	return bp.Repeat(bytes, n)
 }
 
 // BytesFixed returns the bytes from the value

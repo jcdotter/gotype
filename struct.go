@@ -479,3 +479,34 @@ func (s STRUCT) Scan(dest any, tags ...string) {
 		})
 	}
 }
+
+// Gmap returns gotype STRUCT as gotype Gmap
+func (s STRUCT) Gmap() Gmap {
+	gm := make(Gmap, s.Len())
+	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
+		gm[i] = GmapEl{k, v}
+		return
+	})
+	return gm
+}
+
+// GmapByTag returns gotype STRUCT as gotype Gmap
+func (s STRUCT) GmapByTag(tag string) Gmap {
+	gm, gmn, hasTag := make(Gmap, s.Len()), make(Gmap, s.Len()), true
+	s.ForFields(true, func(i int, f FIELD) (brake bool) {
+		if hasTag {
+			t := f.Tag(tag)
+			if t == "" {
+				hasTag = false
+			} else {
+				gm[i] = GmapEl{t, f.VALUE()}
+			}
+		}
+		gmn[i] = GmapEl{f.name, f.VALUE()}
+		return
+	})
+	if hasTag {
+		return gm
+	}
+	return gmn
+}
