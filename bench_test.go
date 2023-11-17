@@ -55,27 +55,6 @@ func BenchmarkMarshaller(b *testing.B) {
 	}
 }
 
-func BenchmarkAppend(b *testing.B) {
-	b.Run("strings", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			s := "this is a long string"
-			s = s + s + s + s + s
-		}
-	})
-	b.Run("bytes", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			b := []byte("this is a long string")
-			b = AppendBytes(b, b, b, b, b)
-		}
-	})
-	b.Run("bytes2", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			b := []byte("this is a long string")
-			b = AppendBytes(b, AppendBytes(b, AppendBytes(b, AppendBytes(b, AppendBytes(b)))))
-		}
-	})
-}
-
 func BenchmarkEncode(b *testing.B) {
 	for n, v := range getTestVars() {
 		b.Run(STRING("Encode("+n+")").Width(42), func(b *testing.B) {

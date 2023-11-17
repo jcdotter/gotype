@@ -71,6 +71,8 @@ type Marshaller struct {
 	mapParts   map[string][3][]byte
 	hasTag     map[*TYPE]bool
 	tagKeys    map[*TYPE][]string
+	hasMethod  map[*TYPE]bool
+	methods    map[*TYPE]reflect.Value
 }
 
 type InlineSyntax struct {
@@ -172,6 +174,10 @@ func (m *Marshaller) Init() {
 	m.valEnd = m.ValEnd
 	m.sliceParts = map[string][3][]byte{}
 	m.mapParts = map[string][3][]byte{}
+	m.initFormat()
+}
+
+func (m *Marshaller) initFormat() {
 	if m.Format {
 		if m.Indent == nil {
 			m.Indent = []byte("  ")
@@ -194,6 +200,15 @@ func (m *Marshaller) Init() {
 			m.ivalEnd = AppendBytes(m.InlineSyntax.ValEnd, m.space)
 		}
 	}
+}
+
+func (m *Marshaller) New() *Marshaller {
+	n := *m
+	if m.InlineSyntax != nil {
+		s := *m.InlineSyntax
+		n.InlineSyntax = &s
+	}
+	return &n
 }
 
 func (m *Marshaller) Reset() {
@@ -241,6 +256,31 @@ func (m Marshaller) Bytes() []byte {
 
 func (m Marshaller) String() string {
 	return string(m.buffer)
+}
+
+func (m Marshaller) Formatted(indent ...int) string {
+	difIndent := false
+	oldIndent := m.Indent
+	oldBreak := m.LineBreak
+	m.initFormat()
+	if len(indent) > 0 {
+		in := bytes.Repeat([]byte(" "), indent[0])
+		if !bytes.Equal(m.Indent, in) {
+			m.Indent = in
+			difIndent = true
+		}
+	}
+	if (difIndent || m.buffer == nil || !m.Format || !bytes.Equal(oldBreak, m.LineBreak)) && m.value != nil {
+		oldFormat := m.Format
+		m.Format = true
+		m.initFormat()
+		m.ResetCursor()
+		m.Marshal(m.value)
+		m.Indent = oldIndent
+		m.Format = oldFormat
+	}
+	m.LineBreak = oldBreak
+	return m.String()
 }
 
 func (m Marshaller) Map() map[string]any {
@@ -535,6 +575,9 @@ func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
 		m.ToBuffer(m.Null)
 		return
 	}
+	if m.marshaltStructByMethod(s) {
+		return
+	}
 	if s.Len() == 0 {
 		if !m.hasBrackets {
 			m.ToBuffer(m.Null)
@@ -545,15 +588,9 @@ func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
 	}
 	start, delim, end := m.marshalMapComponents((VALUE)(s), ancestry)
 	ancestry = append([]ancestor{{s.typ, uintptr(s.ptr)}}, ancestry...)
+	m.marshalStructTag(s)
 	m.ToBuffer(start)
 	m.IncDepth()
-	if m.hasTag == nil {
-		vals, has := s.typ.TagValues(m.Type)
-		m.hasTag = map[*TYPE]bool{s.typ: has}
-		m.tagKeys = map[*TYPE][]string{s.typ: vals}
-	} else if _, ok := m.hasTag[s.typ]; !ok {
-		m.tagKeys[s.typ], m.hasTag[s.typ] = s.typ.TagValues(m.Type)
-	}
 	j, has, keys := 0, m.hasTag[s.typ], m.tagKeys[s.typ]
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		b, recursive := m.recursiveValue(v, ancestry)
@@ -578,6 +615,52 @@ func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
 	})
 	m.DecDepth()
 	m.ToBuffer(end)
+}
+
+func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
+	if s.typ == TypeOf(TYPE{}) {
+		m.marshalString((*TYPE)(s.ptr).Name())
+		return true
+	}
+	if m.hasMethod != nil {
+		if has, ok := m.hasMethod[s.typ]; ok {
+			if has {
+				m.ToBuffer([]byte(m.methods[s.typ].Call([]reflect.Value{})[0].String()))
+			}
+			return has
+		}
+	} else {
+		m.hasMethod = map[*TYPE]bool{s.typ: false}
+		m.methods = map[*TYPE]reflect.Value{}
+	}
+	n := STRING(m.Type[:1]).ToUpper() + m.Type[1:]
+	methods := []string{n, "Marshal" + n}
+	for _, name := range methods {
+		meth, exists := s.typ.Reflect().MethodByName(name)
+		if exists {
+			in, out := meth.Type.NumIn(), meth.Type.NumOut()
+			if in == 1 && out > 0 {
+				if k := FromReflectType(meth.Type.Out(0)).KIND(); k == String || k == Bytes {
+					m.hasMethod[s.typ] = true
+					m.methods[s.typ] = (VALUE)(s).Reflect().Method(meth.Index)
+					b := []byte(m.methods[s.typ].Call([]reflect.Value{})[0].String())
+					m.ToBuffer(b)
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (m *Marshaller) marshalStructTag(s STRUCT) {
+	if m.hasTag == nil {
+		vals, has := s.typ.TagValues(m.Type)
+		m.hasTag = map[*TYPE]bool{s.typ: has}
+		m.tagKeys = map[*TYPE][]string{s.typ: vals}
+	} else if _, ok := m.hasTag[s.typ]; !ok {
+		m.tagKeys[s.typ], m.hasTag[s.typ] = s.typ.TagValues(m.Type)
+	}
 }
 
 func (m *Marshaller) marshalUnsafePointer(p unsafe.Pointer) {
@@ -756,10 +839,10 @@ func (m *Marshaller) recursiveValue(v VALUE, ancestry []ancestor) (bytes []byte,
 		if a.pointer == uintptr(v.ptr) && a.typ == v.typ {
 			is = true
 			if v.Kind() == Struct && m.RecursiveName {
-				if _, ok := v.typ.Reflect().MethodByName("Name"); ok {
-					bytes = v.Reflect().MethodByName("Name").Call([]reflect.Value{})[0].Bytes()
-				} else if _, ok := v.typ.Reflect().MethodByName("String"); ok {
-					bytes = v.Reflect().MethodByName("String").Call([]reflect.Value{})[0].Bytes()
+				if m, ok := v.typ.Reflect().MethodByName("Name"); ok {
+					bytes = v.Reflect().Method(m.Index).Call([]reflect.Value{})[0].Bytes()
+				} else if m, ok := v.typ.Reflect().MethodByName("String"); ok {
+					bytes = v.Reflect().Method(m.Index).Call([]reflect.Value{})[0].Bytes()
 				} else {
 					bytes = []byte(v.typ.NameShort())
 				}

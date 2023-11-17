@@ -235,8 +235,8 @@ func (s STRUCT) MAP() MAP {
 
 // String returns gotype STRUCT as a serialized json string
 func (s STRUCT) String() string {
-	if _, ok := s.ReflectType().MethodByName("String"); ok {
-		return s.ReflectValue().MethodByName("String").Call([]reflect.Value{})[0].String()
+	if m, ok := s.ReflectType().MethodByName("String"); ok {
+		return s.ReflectValue().Method(m.Index).Call([]reflect.Value{})[0].String()
 	} else {
 		return (VALUE)(s).Marshal(JsonMarshaller).String()
 	}
@@ -407,7 +407,7 @@ func (s *STRUCT) SubTagIndex(tag string, subTag string) map[string]FIELD {
 
 // ReflectValue returns the reflect.Value of gotype STRUCT
 func (s STRUCT) ReflectValue() reflect.Value {
-	return *(*reflect.Value)(unsafe.Pointer(&VALUE{s.typ, s.ptr, flag(Struct)}))
+	return (VALUE)(s).Reflect()
 }
 
 // ReflectType returns the reflect.Type of gotype STRUCT

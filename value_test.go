@@ -5,6 +5,7 @@
 package gotype
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -21,7 +22,24 @@ var config = &test.Config{
 	Msg:         "%s",
 }
 
+type tests struct {
+	FirstName string
+	LastName  string
+	Type      string
+	Num       int
+}
+
+func (x tests) Yaml() string {
+	return fmt.Sprintf("{name: '%s, %s', type: %s, num: %d}", x.LastName, x.FirstName, x.Type, x.Num)
+}
+
 func TestTest(t *testing.T) {
+	s := []tests{
+		{"james", "dotter", "test", 1},
+		{"james", "dotter", "test", 2},
+		{"james", "dotter", "test", 3},
+	}
+	fmt.Println(YamlMarshaller.Marshal(s).String())
 }
 
 func BenchmarkTest(b *testing.B) {

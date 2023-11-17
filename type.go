@@ -36,6 +36,7 @@ var (
 	__timefield1t = __timefields[1].typ
 	__timefield2b = __timefields[2].name.bytes
 	__timefield2t = __timefields[2].typ
+	errorType     = reflect.TypeOf((*error)(nil)).Elem()
 )
 
 type flag uintptr
@@ -185,6 +186,13 @@ func (t *TYPE) HasDataElem() bool {
 	default:
 		return t.Elem().IsData()
 	}
+}
+
+func (t *TYPE) IsError() bool {
+	if t.Kind() == Interface {
+		return t.Reflect().Implements(errorType)
+	}
+	return false
 }
 
 // String returns the string representation of the TYPE
