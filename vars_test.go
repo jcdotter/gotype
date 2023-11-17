@@ -143,6 +143,12 @@ func getTestVars() map[string]any {
 	return createTestVars(false, 0, "false")
 }
 
+func getTestVarsGmap() Gmap {
+	m := MapOf(createTestVars(false, 0, "false")).Gmap()
+	m.SortByKeys()
+	return m
+}
+
 func createTestVars(b bool, i int, s string, item ...string) map[string]any {
 	v := map[string]any{
 		"bool":   b,

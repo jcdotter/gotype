@@ -111,8 +111,8 @@ func (t TIME) STRING() STRING {
 	return STRING(t.String())
 }
 
-// Serialize returns gotype TIME as serialized string
-func (t TIME) Serialize() string {
+// json returns gotype TIME as serialized json string
+func (t TIME) json() string {
 	return `"` + t.String() + `"`
 }
 

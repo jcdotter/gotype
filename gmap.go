@@ -4,6 +4,8 @@
 
 package gotype
 
+import "sort"
+
 // Gmap is in essences an ordered map
 type Gmap []GmapEl
 
@@ -50,4 +52,27 @@ func (g *Gmap) Del(key string) {
 			return
 		}
 	}
+}
+
+func (g *Gmap) Keys() []string {
+	keys := make([]string, len(*g))
+	for i, el := range *g {
+		keys[i] = el.Key
+	}
+	return keys
+}
+
+func (g *Gmap) Values() []VALUE {
+	values := make([]VALUE, len(*g))
+	for i, el := range *g {
+		values[i] = el.Value
+	}
+	return values
+}
+
+func (g *Gmap) SortByKeys() *Gmap {
+	sort.Slice(*g, func(i, j int) bool {
+		return (*g)[i].Key < (*g)[j].Key
+	})
+	return g
 }

@@ -58,13 +58,13 @@ type decodex struct {
 	v VALUE // gotype value of encoding
 }
 
-// String return serialized string of decoded value
+// String return serialized json string of decoded value
 func (d decodex) String() string {
 	return d.v.String()
 }
 
-// Serialize returns serialized string decodex
-func (d decodex) Serialize() string {
+// json returns serialized json string decodex
+func (d decodex) Json() string {
 	return MapOf(map[string]any{
 		"kind":  d.k.String(),
 		"bytes": INT(d.b).String(),
@@ -112,7 +112,7 @@ func (e ENCODING) KIND() KIND {
 }
 
 func (e ENCODING) String() string {
-	return SliceOf(e).Serialize()
+	return SliceOf(e).json()
 }
 
 // LenAtLeast panics if length of encoding is less than l

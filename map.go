@@ -144,6 +144,7 @@ func (m MAP) ForEach(f func(i int, k string, v VALUE) (brake bool)) {
 	valuesize := uintptr(t.valuesize)
 	voff := dataOffset + bucketCnt*keysize
 	i := 0
+	brake := false
 	for i < l {
 		k := 0
 		for k < bucketCnt { // capture each key in bucket
@@ -163,12 +164,16 @@ func (m MAP) ForEach(f func(i int, k string, v VALUE) (brake bool)) {
 			if !t.elem.IfaceIndir() {
 				v.ptr = *(*unsafe.Pointer)(v.ptr)
 			}
-			if f(k, *(*string)(unsafe.Pointer(up)), v) {
+			if f(i, *(*string)(unsafe.Pointer(up)), v) {
+				brake = true
 				break
 			}
 			k++
+			i++
 		}
-		i += k
+		if brake {
+			break
+		}
 		// determine next bucket
 		if sub := *(*uintptr)(unsafe.Pointer(b + bucketsize - 8)); sub != 0 { // has overflow
 			if ob == 0 {
@@ -272,9 +277,9 @@ func (m MAP) Encode() ENCODING {
 	return e
 }
 
-// Bytes returns gotype MAP as serialized []byte
+// Bytes returns gotype MAP as serialized json []byte
 func (m MAP) Bytes() []byte {
-	return []byte(m.String())
+	return (VALUE)(m).Marshal(JsonMarshaller).Bytes()
 }
 
 // Bool returns gotype MAP as bool
@@ -308,13 +313,13 @@ func (m MAP) MapValues() map[string]VALUE {
 	return r
 }
 
-// String returns gotype MAP as a serialized string
+// String returns gotype MAP as a serialized json string
 func (m MAP) String() string {
-	return m.Serialize()
+	return (VALUE)(m).Marshal(JsonMarshaller).String()
 }
 
-// Serialize returns gotype MAP as a serialized string
-func (m MAP) Serialize(ancestry ...ancestor) (s string) {
+// json returns gotype MAP as a serialized json string
+func (m MAP) json(ancestry ...ancestor) (s string) {
 	if (VALUE)(m).Pointer() == nil {
 		return "null"
 	}
@@ -322,7 +327,7 @@ func (m MAP) Serialize(ancestry ...ancestor) (s string) {
 		return "{}"
 	}
 	m.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		sval, recursive := v.serialSafe(ancestry...)
+		sval, recursive := v.jsonSafe(ancestry...)
 		if !recursive {
 			s += `,"` + k + `":` + sval
 		}
@@ -439,7 +444,7 @@ func (m MAP) Scan(dest any, tags ...string) {
 
 // JSON returns gotype MAP as gotype JSON
 func (m MAP) JSON() JSON {
-	return JSON(m.Serialize())
+	return (VALUE)(m).Marshal(JsonMarshaller).Bytes()
 }
 
 // Gmap returns gotype MAP as gotype Gmap

@@ -200,9 +200,9 @@ func (s STRUCT) Encode() ENCODING {
 	return e
 }
 
-// Bytes returns gotype STRUCT as serialized []byte
+// Bytes returns gotype STRUCT as serialized json []byte
 func (s STRUCT) Bytes() []byte {
-	return []byte(s.String())
+	return (VALUE)(s).Marshal(JsonMarshaller).Bytes()
 }
 
 // Bool returns gotype STRUCT as bool
@@ -233,12 +233,12 @@ func (s STRUCT) MAP() MAP {
 	return MapOf(s.Map())
 }
 
-// String returns gotype STRUCT as a serialized string
+// String returns gotype STRUCT as a serialized json string
 func (s STRUCT) String() string {
 	if _, ok := s.ReflectType().MethodByName("String"); ok {
 		return s.ReflectValue().MethodByName("String").Call([]reflect.Value{})[0].String()
 	} else {
-		return s.Serialize()
+		return (VALUE)(s).Marshal(JsonMarshaller).String()
 	}
 }
 
@@ -247,8 +247,8 @@ func (s STRUCT) Name() string {
 	return s.typ.Name()
 }
 
-// Serialize returns gotype STRUCT as a serialized string
-func (s STRUCT) Serialize(ancestry ...ancestor) (S string) {
+// json returns gotype STRUCT as a serialized json string
+func (s STRUCT) json(ancestry ...ancestor) (S string) {
 	if s.ptr == nil {
 		return "null"
 	}
@@ -256,7 +256,7 @@ func (s STRUCT) Serialize(ancestry ...ancestor) (S string) {
 		return "{}"
 	}
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		sval, recursive := v.serialSafe(ancestry...)
+		sval, recursive := v.jsonSafe(ancestry...)
 		if !recursive {
 			S += `,"` + k + `":` + sval
 		}
@@ -265,8 +265,8 @@ func (s STRUCT) Serialize(ancestry ...ancestor) (S string) {
 	return "{" + S[1:] + "}"
 }
 
-// SerializeByTag returns gotype STRUCT as a serialized string with the provided tag as keys
-func (s STRUCT) SerializeByTag(tag string, ancestry ...ancestor) (S string) {
+// jsonByTag returns gotype STRUCT as a serialized json string with the provided tag as keys
+func (s STRUCT) jsonByTag(tag string, ancestry ...ancestor) (S string) {
 	if s.ptr == nil {
 		return "null"
 	}
@@ -274,7 +274,7 @@ func (s STRUCT) SerializeByTag(tag string, ancestry ...ancestor) (S string) {
 		return "{}"
 	}
 	s.ForFields(false, func(i int, f FIELD) (brake bool) {
-		sval, recursive := f.VALUE().serialSafe(ancestry...)
+		sval, recursive := f.VALUE().jsonSafe(ancestry...)
 		if !recursive {
 			S += `,"` + f.Tag(tag) + `":` + sval
 		}
@@ -326,12 +326,12 @@ func (s STRUCT) Struct() any {
 
 // JSON returns gotype STRUCT as gotype JSON
 func (s STRUCT) JSON() JSON {
-	return JSON(s.Serialize())
+	return (VALUE)(s).Marshal(JsonMarshaller).Bytes()
 }
 
 // JsonByTag returns gotype STRUCT as gotype JSON using provided tag as keys
 func (s STRUCT) JsonByTag(tag string) JSON {
-	return JSON(s.SerializeByTag(tag))
+	return JSON(s.jsonByTag(tag))
 }
 
 // ------------------------------------------------------------ /

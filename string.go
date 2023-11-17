@@ -87,7 +87,7 @@ func (v VALUE) string() string {
 		if *(*unsafe.Pointer)(v.ptr) == nil {
 			return "null"
 		}
-		return STRING(fmt.Sprint(v.Interface())).Serialize()
+		return STRING(fmt.Sprint(v.Interface())).json()
 	case Map:
 		return (MAP)(v).String()
 	case Pointer:
@@ -244,8 +244,8 @@ func (s STRING) STRING() STRING {
 	return s
 }
 
-// Serialize returns gotype STRING as serialized string with quotes escaped
-func (s STRING) Serialize() string {
+// json returns gotype STRING as serialized json string with quotes escaped
+func (s STRING) json() string {
 	return `"` + s.Escaped(`"`, `\`) + `"`
 }
 

@@ -428,6 +428,21 @@ func (t *TYPE) FieldTagValue(name string, tag string) string {
 	return getTagValue(t.FieldTag(name), tag, 34)
 }
 
+// TagValues returns a slice of string values for tag across fields in a struct TYPE
+func (t *TYPE) TagValues(tag string) (vals []string, has bool) {
+	fs := (*structType)(unsafe.Pointer(t)).fields
+	vals = make([]string, len(fs))
+	has = true
+	for i, f := range fs {
+		vals[i] = getTagValue(f.name.tag(), tag, 34)
+		if vals[i] == "" {
+			has = false
+			break
+		}
+	}
+	return
+}
+
 // ForFields iterates over the fields of a struct TYPE and calls
 // the function f with the index and TYPE of each field
 func (t *TYPE) ForFields(f func(i int, f *FieldType) (brake bool)) {

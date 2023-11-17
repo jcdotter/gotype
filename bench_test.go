@@ -23,7 +23,7 @@ func BenchmarkSerialize(b *testing.B) {
 	for n, v := range getTestVars() {
 		b.Run(STRING(n).Width(35), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				ValueOf(v).Serialize()
+				ValueOf(v).json()
 			}
 		})
 	}
@@ -31,28 +31,49 @@ func BenchmarkSerialize(b *testing.B) {
 
 func BenchmarkMarshaller(b *testing.B) {
 	var s string
-	for n, v := range getTestVars() {
-		b.Run(STRING(n).Width(35)+"-Serial", func(b *testing.B) {
+	for _, v := range getTestVarsGmap() {
+		b.Run(STRING(v.Key).Width(35)+"-Serial", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				s = ValueOf(v).Serialize()
+				s = v.Value.json()
 			}
 		})
-		b.Run(STRING(n).Width(35)+"-Marshl", func(b *testing.B) {
+		b.Run(STRING(v.Key).Width(35)+"-Marshl", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				ValueOf(v).Marshal(MarshallerJson).String()
+				v.Value.Marshal(JsonMarshaller)
 			}
 		})
-		b.Run(STRING(n).Width(35)+"-DeSerial", func(b *testing.B) {
+		b.Run(STRING(v.Key).Width(35)+"-DeSerial", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				STRING(s).UnmarshalJson()
 			}
 		})
-		b.Run(STRING(n).Width(35)+"-UnMarshl", func(b *testing.B) {
+		b.Run(STRING(v.Key).Width(35)+"-UnMarshl", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				MarshallerJson.Unmarshal()
+				JsonMarshaller.Unmarshal()
 			}
 		})
 	}
+}
+
+func BenchmarkAppend(b *testing.B) {
+	b.Run("strings", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			s := "this is a long string"
+			s = s + s + s + s + s
+		}
+	})
+	b.Run("bytes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b := []byte("this is a long string")
+			b = AppendBytes(b, b, b, b, b)
+		}
+	})
+	b.Run("bytes2", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b := []byte("this is a long string")
+			b = AppendBytes(b, AppendBytes(b, AppendBytes(b, AppendBytes(b, AppendBytes(b)))))
+		}
+	})
 }
 
 func BenchmarkEncode(b *testing.B) {

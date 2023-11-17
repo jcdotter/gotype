@@ -154,9 +154,9 @@ func (a ARRAY) Encode() ENCODING {
 	return e
 }
 
-// Bytes returns gotype ARRAY as serialized []byte
+// Bytes returns gotype ARRAY as serialized json []byte
 func (a ARRAY) Bytes() []byte {
-	return []byte(a.String())
+	return (VALUE)(a).Marshal(JsonMarshaller).Bytes()
 }
 
 // Bool returns gotype ARRAY as bool
@@ -204,13 +204,13 @@ func (a ARRAY) MAP() MAP {
 	return (MAP)(ValueOf(a.Map()))
 }
 
-// String returns gotype ARRAY as a serialized string
+// String returns gotype ARRAY as a serialized json string
 func (a ARRAY) String() string {
-	return a.Serialize()
+	return (VALUE)(a).Marshal(JsonMarshaller).String()
 }
 
-// Serialize returns gotype ARRAY as a serialized string
-func (a ARRAY) Serialize(ancestry ...ancestor) (s string) {
+// json returns gotype ARRAY as a serialized json string
+func (a ARRAY) json(ancestry ...ancestor) (s string) {
 	if a.ptr == nil {
 		return "null"
 	}
@@ -218,7 +218,7 @@ func (a ARRAY) Serialize(ancestry ...ancestor) (s string) {
 		return "[]"
 	}
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		sval, recursive := v.serialSafe(ancestry...)
+		sval, recursive := v.jsonSafe(ancestry...)
 		if !recursive {
 			s += "," + sval
 		}
@@ -242,5 +242,5 @@ func (a ARRAY) Scan(dest any) {
 
 // JSON returns gotype ARRAY as gotype JSON
 func (a ARRAY) JSON() JSON {
-	return JSON(a.Serialize())
+	return (VALUE)(a).Marshal(JsonMarshaller).Bytes()
 }

@@ -6,40 +6,12 @@ package gotype
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"math"
 	"reflect"
 	"strconv"
 	"unsafe"
 )
-
-// ------------------------------------------------------------ /
-// TODO:
-// [x] Test Indent Json
-// [x] Inc Length of Buffer
-// [x] Test Inline Yaml
-// [x] Test Yaml
-//		rework bookends and delimiters
-//		set: start, delim and end
-// [x] Finish Unmarshal
-//     [x] whitespace
-//     [x] quote
-//     [x] comments
-//     [x] indent / object end / negative indent
-//     [x] string
-//     [x] map
-//	   [x] slice
-//	   [x] general deserializer - decides type and routes to appropriate deserializer
-//     -- output types: string, map[string]any, []any (null, number and bool are all strings)
-// [x] Test Special Characters
-// [x] Handle Recursive Subvalues
-// [x] Yaml comments on own line
-// [ ] Remove Serialize functions
-//     [ ] Add Yaml Type
-//     [ ] Update JSON Type
-//     [x] Update Testing to use Marshaller
-// ------------------------------------------------------------ /
 
 // ------------------------------------------------------------ /
 // MARSHALLER IMPLEMENTATION
@@ -88,6 +60,17 @@ type Marshaller struct {
 	QuotedNull       bool // when true, marshal null with quotes
 	RecursiveName    bool // when true, include name, string or type of recursive struct value in marshalling, otherwise, exclude all
 	UnmarshalTyped   bool // when true, unmarshal to typed values (int, float64, bool, string) instead of just strings
+	// marshaller cache
+	space      []byte
+	quote      []byte
+	escape     []byte
+	valEnd     []byte
+	keyEnd     []byte
+	ivalEnd    []byte
+	sliceParts map[string][3][]byte
+	mapParts   map[string][3][]byte
+	hasTag     map[*TYPE]bool
+	tagKeys    map[*TYPE][]string
 }
 
 type InlineSyntax struct {
@@ -104,7 +87,7 @@ type InlineSyntax struct {
 // ------------------------------------------------------------ /
 
 var (
-	MarshallerJson = &Marshaller{
+	JsonMarshaller = &Marshaller{
 		Type:              "json",
 		FormatWithSpaces:  true,
 		CascadeOnlyDeep:   true,
@@ -125,7 +108,7 @@ var (
 		MapStart:          []byte("{"),
 		MapEnd:            []byte("}"),
 	}
-	MarshallerYaml = &Marshaller{
+	YamlMarshaller = &Marshaller{
 		Type:             "yaml",
 		Format:           true,
 		FormatWithSpaces: true,
@@ -154,8 +137,8 @@ var (
 // ------------------------------------------------------------ /
 
 func init() {
-	MarshallerJson.Init()
-	MarshallerYaml.Init()
+	JsonMarshaller.Init()
+	YamlMarshaller.Init()
 }
 
 func (m *Marshaller) Init() {
@@ -182,6 +165,13 @@ func (m *Marshaller) Init() {
 	if !m.hasBrackets && InBytes('\n', m.Space) {
 		panic("cannot marshal without brackets when line breaks in space characters")
 	}
+	m.space = m.Space[:1]
+	m.quote = m.Quote[:1]
+	m.escape = m.Escape[:1]
+	m.keyEnd = m.KeyEnd
+	m.valEnd = m.ValEnd
+	m.sliceParts = map[string][3][]byte{}
+	m.mapParts = map[string][3][]byte{}
 	if m.Format {
 		if m.Indent == nil {
 			m.Indent = []byte("  ")
@@ -197,6 +187,11 @@ func (m *Marshaller) Init() {
 				MapStart:   m.MapStart,
 				MapEnd:     m.MapEnd,
 			}
+		}
+		if m.FormatWithSpaces {
+			m.keyEnd = AppendBytes(m.KeyEnd, m.space)
+			m.valEnd = AppendBytes(m.ValEnd, m.space)
+			m.ivalEnd = AppendBytes(m.InlineSyntax.ValEnd, m.space)
 		}
 	}
 }
@@ -275,9 +270,10 @@ func (m Marshaller) Slice() []any {
 // methods for marshalling to type
 // ------------------------------------------------------------ /
 
-func (m *Marshaller) Marshal(a any) []byte {
+func (m *Marshaller) Marshal(a any) *Marshaller {
 	m.Reset()
-	return m.marshal(ValueOf(a))
+	m.marshal(ValueOf(a))
+	return m
 }
 
 func (v VALUE) Marshal(m *Marshaller) *Marshaller {
@@ -286,48 +282,49 @@ func (v VALUE) Marshal(m *Marshaller) *Marshaller {
 	return m
 }
 
-func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) []byte {
+func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
 	v = v.SetType()
 	if v.ptr == nil {
-		return []byte("null")
+		m.ToBuffer(m.Null)
 	}
 	switch v.KIND() {
 	case Bool:
-		return m.marshalBool(v.Bool())
+		m.marshalBool(v.Bool())
 	case Int, Int8, Int16, Int32, Int64, Uint, Uint8, Uint16, Uint32, Uint64, Float32, Float64, Complex64, Complex128:
-		return m.marshalNum(v)
+		m.marshalNum(v)
 	case Array:
-		return m.marshalArray((ARRAY)(v), ancestry...)
+		m.marshalArray((ARRAY)(v), ancestry...)
 	case Func:
-		return m.marshalFunc(v)
+		m.marshalFunc(v)
 	case Interface:
-		return m.marshalInterface(v)
+		m.marshalInterface(v)
 	case Map:
-		return m.marshalMap((MAP)(v), ancestry...)
+		m.marshalMap((MAP)(v), ancestry...)
 	case Pointer:
-		return m.marshal(v.Elem())
+		m.marshal(v.Elem())
 	case Slice:
-		return m.marshalSlice((SLICE)(v), ancestry...)
+		m.marshalSlice((SLICE)(v), ancestry...)
 	case String:
-		return m.marshalString(*(*string)(v.ptr))
+		m.marshalString(*(*string)(v.ptr))
 	case Struct:
-		return m.marshalStruct((STRUCT)(v), ancestry...)
+		m.marshalStruct((STRUCT)(v), ancestry...)
 	case UnsafePointer:
-		return m.marshalUnsafePointer(*(*unsafe.Pointer)(v.ptr))
+		m.marshalUnsafePointer(*(*unsafe.Pointer)(v.ptr))
 	case Field:
-		return m.marshalField(*(*FIELD)(unsafe.Pointer(&v)))
+		m.marshalField(*(*FIELD)(unsafe.Pointer(&v)))
 	case Time:
-		return m.marshalTime(*(*TIME)(v.ptr))
+		m.marshalTime(*(*TIME)(v.ptr))
 	case Uuid:
-		return m.marshalUuid(*(*UUID)(v.ptr))
+		m.marshalUuid(*(*UUID)(v.ptr))
 	case Bytes:
-		return m.marshalBytes(*(*BYTES)(v.ptr))
+		m.marshalBytes(*(*BYTES)(v.ptr))
 	default:
-		panic(errors.New("cannot marshal type '" + v.typ.String() + "'"))
+		panic("cannot marshal type '" + v.typ.String() + "'")
 	}
 }
 
-func (m *Marshaller) marshalBool(b bool) (bytes []byte) {
+func (m *Marshaller) marshalBool(b bool) {
+	var bytes []byte
 	if b {
 		bytes = []byte("true")
 	} else {
@@ -338,10 +335,10 @@ func (m *Marshaller) marshalBool(b bool) (bytes []byte) {
 		bytes = append(q, append(bytes, q...)...)
 	}
 	m.ToBuffer(bytes)
-	return
 }
 
-func (m *Marshaller) marshalNum(v VALUE) (bytes []byte) {
+func (m *Marshaller) marshalNum(v VALUE) {
+	var bytes []byte
 	switch v.Kind() {
 	case Int:
 		bytes = []byte(strconv.FormatInt(*(*int64)(v.ptr), 10))
@@ -374,38 +371,42 @@ func (m *Marshaller) marshalNum(v VALUE) (bytes []byte) {
 	case Complex128:
 		bytes = []byte(strconv.FormatComplex(*(*complex128)(v.ptr), 'f', -1, 128))
 	default:
-		panic(errors.New("cannot marshal type '" + v.typ.String() + "'"))
+		panic("cannot marshal type '" + v.typ.String() + "'")
 	}
 	if m.QuotedNum {
 		q := m.Quote[:1]
 		bytes = append(q, append(bytes, q...)...)
 	}
 	m.ToBuffer(bytes)
-	return
 }
 
-func (m *Marshaller) marshalArray(a ARRAY, ancestry ...ancestor) []byte {
+func (m *Marshaller) marshalArray(a ARRAY, ancestry ...ancestor) {
 	if a.ptr == nil {
-		return m.ToBuffer(m.Null)
+		m.ToBuffer(m.Null)
+		return
 	}
 	if a.Len() == 0 {
 		if !m.hasBrackets {
-			return m.ToBuffer(m.Null)
+			m.ToBuffer(m.Null)
+			return
 		}
-		return m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
+		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
+		return
 	}
 	start, delim, end := m.marshalSliceComponents((VALUE)(a), ancestry)
 	ancestry = append([]ancestor{{a.typ, uintptr(a.ptr)}}, ancestry...)
 	m.ToBuffer(start)
 	m.IncDepth()
+	j := 0
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		b, recursive := m.recursiveValue(v, ancestry)
 		if recursive && b == nil {
 			return
 		}
-		if i > 0 {
+		if j > 0 {
 			m.ToBuffer(delim)
 		}
+		j++
 		if b != nil {
 			m.marshalBytes(b)
 			return
@@ -414,49 +415,57 @@ func (m *Marshaller) marshalArray(a ARRAY, ancestry ...ancestor) []byte {
 		return
 	})
 	m.DecDepth()
-	return m.ToBuffer(end)
+	m.ToBuffer(end)
 }
 
-func (m *Marshaller) marshalFunc(v VALUE) []byte {
-	return m.ToBuffer([]byte(v.typ.Name()))
+func (m *Marshaller) marshalFunc(v VALUE) {
+	m.ToBuffer([]byte(v.typ.Name()))
 }
 
-func (m *Marshaller) marshalInterface(v VALUE) []byte {
+func (m *Marshaller) marshalInterface(v VALUE) {
 	if v.ptr != nil {
 		if *(*unsafe.Pointer)(v.ptr) != nil {
 			v = v.SetType()
 			if v.Kind() != Interface {
-				return m.marshal(v)
+				m.marshal(v)
+				return
 			}
-			return m.Marshal(fmt.Sprint(v.Interface()))
+			m.Marshal(fmt.Sprint(v.Interface()))
+			return
 		}
 	}
-	return m.Null
+	m.ToBuffer(m.Null)
 }
 
-func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) []byte {
+func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) {
 	if hm.ptr == nil {
-		return m.ToBuffer(m.Null)
+		m.ToBuffer(m.Null)
+		return
 	}
 	if hm.Len() == 0 {
 		if !m.hasBrackets {
-			return m.ToBuffer(m.Null)
+			m.ToBuffer(m.Null)
+			return
 		}
-		return m.ToBuffer(append(m.MapStart, m.MapEnd...))
+		m.ToBuffer(AppendBytes(m.MapStart, m.MapEnd))
+		return
 	}
 	start, delim, end := m.marshalMapComponents((VALUE)(hm), ancestry)
 	ancestry = append([]ancestor{{hm.typ, uintptr(hm.ptr)}}, ancestry...)
 	m.ToBuffer(start)
 	m.IncDepth()
+	j := 0
 	hm.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		b, recursive := m.recursiveValue(v, ancestry)
 		if recursive && b == nil {
 			return
 		}
-		if i > 0 {
-			m.ToBuffer(delim)
+		if j > 0 {
+			m.marshalKey(delim, []byte(k))
+		} else {
+			m.marshalKey(nil, []byte(k))
 		}
-		m.marshalKey([]byte(k))
+		j++
 		if b != nil {
 			m.marshalBytes(b)
 			return
@@ -465,31 +474,36 @@ func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) []byte {
 		return
 	})
 	m.DecDepth()
-	return m.ToBuffer(end)
+	m.ToBuffer(end)
 }
 
-func (m *Marshaller) marshalSlice(s SLICE, ancestry ...ancestor) []byte {
+func (m *Marshaller) marshalSlice(s SLICE, ancestry ...ancestor) {
 	if s.ptr == nil {
-		return m.ToBuffer(m.Null)
+		m.ToBuffer(m.Null)
+		return
 	}
 	if s.Len() == 0 {
 		if !m.hasBrackets {
-			return m.ToBuffer(m.Null)
+			m.ToBuffer(m.Null)
+			return
 		}
-		return m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
+		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
+		return
 	}
 	start, delim, end := m.marshalSliceComponents((VALUE)(s), ancestry)
 	ancestry = append([]ancestor{{s.typ, uintptr(s.ptr)}}, ancestry...)
 	m.ToBuffer(start)
 	m.IncDepth()
+	j := 0
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
 		b, recursive := m.recursiveValue(v, ancestry)
 		if recursive && b == nil {
 			return
 		}
-		if i > 0 {
+		if j > 0 {
 			m.ToBuffer(delim)
 		}
+		j++
 		if b != nil {
 			m.marshalBytes(b)
 			return
@@ -498,10 +512,10 @@ func (m *Marshaller) marshalSlice(s SLICE, ancestry ...ancestor) []byte {
 		return
 	})
 	m.DecDepth()
-	return m.ToBuffer(end)
+	m.ToBuffer(end)
 }
 
-func (m *Marshaller) marshalString(s string) []byte {
+func (m *Marshaller) marshalString(s string) {
 	b := []byte(s)
 	quoted := m.QuotedString
 	if !quoted && m.QuotedSpecial {
@@ -514,145 +528,160 @@ func (m *Marshaller) marshalString(s string) []byte {
 		b = append(append(q, BYTES(b).Escaped(q[0], m.Escape[0])...), q...)
 	}
 	m.ToBuffer(b)
-	return m.buffer
 }
 
-func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) []byte {
+func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
 	if s.ptr == nil {
-		return m.ToBuffer(m.Null)
+		m.ToBuffer(m.Null)
+		return
 	}
 	if s.Len() == 0 {
 		if !m.hasBrackets {
-			return m.ToBuffer(m.Null)
+			m.ToBuffer(m.Null)
+			return
 		}
-		return m.ToBuffer(append(m.MapStart, m.MapEnd...))
+		m.ToBuffer(append(m.MapStart, m.MapEnd...))
+		return
 	}
 	start, delim, end := m.marshalMapComponents((VALUE)(s), ancestry)
 	ancestry = append([]ancestor{{s.typ, uintptr(s.ptr)}}, ancestry...)
 	m.ToBuffer(start)
 	m.IncDepth()
-	fields := s.GmapByTag(m.Type)
-	for i, f := range fields {
-		b, recursive := m.recursiveValue(f.Value, ancestry)
+	if m.hasTag == nil {
+		vals, has := s.typ.TagValues(m.Type)
+		m.hasTag = map[*TYPE]bool{s.typ: has}
+		m.tagKeys = map[*TYPE][]string{s.typ: vals}
+	} else if _, ok := m.hasTag[s.typ]; !ok {
+		m.tagKeys[s.typ], m.hasTag[s.typ] = s.typ.TagValues(m.Type)
+	}
+	j, has, keys := 0, m.hasTag[s.typ], m.tagKeys[s.typ]
+	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
+		b, recursive := m.recursiveValue(v, ancestry)
 		if recursive && b == nil {
-			continue
+			return
 		}
-		if i > 0 {
-			m.ToBuffer(delim)
+		if has {
+			k = keys[i]
 		}
-		m.marshalKey([]byte(f.Key))
+		if j > 0 {
+			m.marshalKey(delim, []byte(k))
+		} else {
+			m.marshalKey(nil, []byte(k))
+		}
+		j++
 		if b != nil {
 			m.marshalBytes(b)
-			continue
+			return
 		}
-		m.marshal(f.Value)
-	}
+		m.marshal(v, ancestry...)
+		return
+	})
 	m.DecDepth()
-	return m.ToBuffer(end)
+	m.ToBuffer(end)
 }
 
-func (m *Marshaller) marshalUnsafePointer(p unsafe.Pointer) []byte {
-	return m.marshalString(fmt.Sprintf("%p", p))
+func (m *Marshaller) marshalUnsafePointer(p unsafe.Pointer) {
+	m.marshalString(fmt.Sprintf("%p", p))
 }
 
-func (m *Marshaller) marshalField(f FIELD) []byte {
-	return m.marshal(f.VALUE())
+func (m *Marshaller) marshalField(f FIELD) {
+	m.marshal(f.VALUE())
 }
 
-func (m *Marshaller) marshalTime(t TIME) []byte {
-	return m.marshalString(t.String())
+func (m *Marshaller) marshalTime(t TIME) {
+	m.marshalString(t.String())
 }
 
-func (m *Marshaller) marshalUuid(u UUID) []byte {
-	return m.marshalString(u.String())
+func (m *Marshaller) marshalUuid(u UUID) {
+	m.marshalString(u.String())
 }
 
-func (m *Marshaller) marshalBytes(b BYTES) []byte {
-	return m.marshalString(string(b))
+func (m *Marshaller) marshalBytes(b BYTES) {
+	m.marshalString(string(b))
 }
 
 func (m *Marshaller) marshalSliceComponents(v VALUE, ancestry []ancestor) (start []byte, delim []byte, end []byte) {
-	switch {
-	case !m.Format:
+	if !m.Format {
 		return m.SliceStart, m.ValEnd, m.SliceEnd
-	case m.CascadeOnlyDeep && !v.HasDataElem():
-		if m.FormatWithSpaces {
-			delim = AppendBytes(m.Space[:1], m.InlineSyntax.ValEnd)
-		}
-		return m.InlineSyntax.SliceStart, delim, m.InlineSyntax.SliceEnd
-	case m.hasBrackets:
-		return m.formattedSliceComponents()
-	default:
-		return m.bracketlessSliceComponents(ancestry)
 	}
+	path := m.ancestryPath(ancestry)
+	if parts, ok := m.sliceParts[path]; ok {
+		return parts[0], parts[1], parts[2]
+	}
+	switch {
+	case m.CascadeOnlyDeep && !v.HasDataElem():
+		start, delim, end = m.InlineSyntax.SliceStart, m.ivalEnd, m.InlineSyntax.SliceEnd
+	case m.hasBrackets:
+		start, delim, end = m.formattedSliceComponents()
+	default:
+		start, delim, end = m.bracketlessSliceComponents(ancestry)
+	}
+	m.sliceParts[path] = [3][]byte{start, delim, end}
+	return
 }
 
 func (m *Marshaller) formattedSliceComponents() (start []byte, delim []byte, end []byte) {
-	end = AppendBytes(m.LineBreak, bytes.Repeat(m.Indent, m.curIndent))
-	nl := append(end, m.Indent...)
-	start = AppendBytes(m.SliceStart, nl, m.SliceItem)
-	delim = AppendBytes(m.ValEnd, nl, m.SliceItem)
-	end = AppendBytes(end, m.SliceEnd)
-	if m.FormatWithSpaces {
-		delim = AppendBytes(m.Space[:1], delim)
-	}
+	in := bytes.Repeat(m.Indent, m.curIndent)
+	start = AppendBytes(m.SliceStart, m.LineBreak, in, m.Indent, m.SliceItem)
+	delim = AppendBytes(m.valEnd, m.LineBreak, in, m.Indent, m.SliceItem)
+	end = AppendBytes(m.LineBreak, in, m.SliceEnd)
 	return
 }
 
 func (m *Marshaller) bracketlessSliceComponents(ancestry []ancestor) (start []byte, delim []byte, end []byte) {
-	nl := AppendBytes(m.LineBreak, bytes.Repeat(m.Indent, m.curIndent))
+	in := bytes.Repeat(m.Indent, m.curIndent)
 	switch m.itemOf(ancestry) {
 	case Map:
-		start = AppendBytes(nl, m.Indent, m.SliceItem)
+		start = AppendBytes(m.LineBreak, in, m.Indent, m.SliceItem)
 		delim = AppendBytes(m.ValEnd, start)
 	case Slice:
 		start = m.SliceItem
-		delim = AppendBytes(m.ValEnd, nl, m.Indent, m.Indent, m.SliceItem)
+		delim = AppendBytes(m.ValEnd, m.LineBreak, in, m.Indent, m.Indent, m.SliceItem)
 	default:
 		start = m.SliceItem
-		delim = AppendBytes(m.ValEnd, nl, m.SliceItem)
+		delim = AppendBytes(m.ValEnd, m.LineBreak, in, m.SliceItem)
 	}
 	return
 }
 
 func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start []byte, delim []byte, end []byte) {
-	switch {
-	case !m.Format:
+	if !m.Format {
 		return m.MapStart, m.ValEnd, m.MapEnd
-	case m.Format && m.CascadeOnlyDeep && !v.HasDataElem():
-		if m.FormatWithSpaces {
-			delim = AppendBytes(m.Space[:1], m.InlineSyntax.ValEnd)
-		}
-		return m.InlineSyntax.MapStart, delim, m.InlineSyntax.MapEnd
-	case m.hasBrackets:
-		return m.formattedMapComponents()
-	default:
-		return m.bracketlessMapComponents(ancestry)
 	}
+	path := m.ancestryPath(ancestry)
+	if parts, ok := m.mapParts[path]; ok {
+		return parts[0], parts[1], parts[2]
+	}
+	switch {
+	case m.Format && m.CascadeOnlyDeep && !v.HasDataElem():
+		start, delim, end = m.InlineSyntax.MapStart, m.ivalEnd, m.InlineSyntax.MapEnd
+	case m.hasBrackets:
+		start, delim, end = m.formattedMapComponents()
+	default:
+		start, delim, end = m.bracketlessMapComponents(ancestry)
+	}
+	m.mapParts[path] = [3][]byte{start, delim, end}
+	return
 }
 
 func (m *Marshaller) formattedMapComponents() (start []byte, delim []byte, end []byte) {
-	end = AppendBytes(m.LineBreak, bytes.Repeat(m.Indent, m.curIndent))
-	nl := append(end, m.Indent...)
-	start = AppendBytes(m.MapStart, nl)
-	delim = AppendBytes(m.ValEnd, nl)
-	end = AppendBytes(end, m.MapEnd)
-	if m.FormatWithSpaces {
-		delim = AppendBytes(m.Space[:1], delim)
-	}
+	in := bytes.Repeat(m.Indent, m.curIndent)
+	start = AppendBytes(m.MapStart, m.LineBreak, in, m.Indent)
+	delim = AppendBytes(m.valEnd, m.LineBreak, in, m.Indent)
+	end = AppendBytes(m.LineBreak, in, m.MapEnd)
 	return
 }
 
 func (m *Marshaller) bracketlessMapComponents(ancestry []ancestor) (start []byte, delim []byte, end []byte) {
-	nl := AppendBytes(m.LineBreak, bytes.Repeat(m.Indent, m.curIndent))
+	in := bytes.Repeat(m.Indent, m.curIndent)
 	switch m.itemOf(ancestry) {
 	case Map:
-		start = AppendBytes(nl, m.Indent)
-		delim = AppendBytes(m.ValEnd, nl, m.Indent)
+		start = AppendBytes(m.LineBreak, in, m.Indent)
+		delim = AppendBytes(m.ValEnd, m.LineBreak, in, m.Indent)
 	case Slice:
-		delim = AppendBytes(m.ValEnd, nl, m.Indent)
+		delim = AppendBytes(m.ValEnd, m.LineBreak, in, m.Indent)
 	default:
-		delim = AppendBytes(m.ValEnd, nl)
+		delim = AppendBytes(m.ValEnd, m.LineBreak, in)
 	}
 	return
 }
@@ -670,18 +699,12 @@ func (m *Marshaller) itemOf(ancestry []ancestor) KIND {
 	return Invalid
 }
 
-func (m *Marshaller) marshalKey(k []byte) {
+func (m *Marshaller) marshalKey(delim, k []byte) {
+	var q []byte
 	if m.QuotedKey {
-		q := m.Quote[:1]
-		k = append(append(q, k...), q...)
+		q = m.quote
 	}
-	if m.KeyEnd != nil {
-		k = append(k, m.KeyEnd...)
-	}
-	m.ToBuffer(k)
-	if m.FormatWithSpaces && m.Format {
-		m.ToBuffer(m.Space[:1])
-	}
+	m.SetBuffer(m.buffer, delim, q, k, q, m.keyEnd)
 }
 
 func (m *Marshaller) IncDepth() {
@@ -701,12 +724,18 @@ func (m *Marshaller) setIndent() {
 		m.curIndent = m.curDepth
 	}
 }
-func (m *Marshaller) ToBuffer(b []byte) []byte {
+func (m *Marshaller) ToBuffer(b []byte) {
 	if b != nil {
 		m.buffer = AppendBytes(m.buffer, b)
 		m.len = len(m.buffer)
 	}
-	return m.buffer
+}
+
+// first arg should be the buffer to append,
+// or not, to replace the buffer
+func (m *Marshaller) SetBuffer(b ...[]byte) {
+	m.buffer = AppendBytes(b...)
+	m.len = len(m.buffer)
 }
 
 func ContainsSpecial(s string) bool {
@@ -741,6 +770,18 @@ func (m *Marshaller) recursiveValue(v VALUE, ancestry []ancestor) (bytes []byte,
 	return nil, false
 }
 
+func (m *Marshaller) ancestryPath(ancestry []ancestor) (path string) {
+	for _, a := range ancestry {
+		switch a.typ.Kind() {
+		case Map, Struct:
+			path += ":Map"
+		default:
+			path += ":Slice"
+		}
+	}
+	return
+}
+
 // ------------------------------------------------------------ /
 // Unmarshal Utilities
 // methods for unmarshalling from type
@@ -772,9 +813,9 @@ func (m *Marshaller) Unmarshal(bytes ...[]byte) *Marshaller {
 	if len(bytes) > 0 {
 		m.buffer = bytes[0]
 		m.len = len(m.buffer)
-	} /*  else if m.value != nil && m.value != any(nil) {
+	} else if m.value != nil && m.value != any(nil) {
 		return m
-	} */
+	}
 	m.value = nil
 	var slice []any
 	var hmap map[string]any
@@ -899,6 +940,9 @@ func (m *Marshaller) unmarshalAny(end ...[]byte) any {
 		m.Inc()
 	}
 	a := STRING(m.buffer[s:m.cursor]).Trim(string(m.Space))
+	if a == "" {
+		return nil
+	}
 	if m.UnmarshalTyped {
 		if a == "true" {
 			return true
@@ -1015,7 +1059,6 @@ func (m *Marshaller) UnmarshalTo(stop []byte) []byte {
 }
 
 func (m *Marshaller) unmarshalSliceStart(ancestry []ancestor) (delim, end []byte, is bool) {
-	var start []byte
 	if m.hasBrackets {
 		if m.isMatch(m.SliceStart) {
 			m.Inc(len(m.SliceStart))
@@ -1023,6 +1066,7 @@ func (m *Marshaller) unmarshalSliceStart(ancestry []ancestor) (delim, end []byte
 			return m.ValEnd, m.SliceEnd, true
 		}
 	} else {
+		var start []byte
 		if start, delim, end = m.bracketlessSliceComponents(ancestry); m.isMatch(start) {
 			m.Inc(len(start))
 			m.IncDepth()
@@ -1040,7 +1084,6 @@ func (m *Marshaller) unmarshalSliceStart(ancestry []ancestor) (delim, end []byte
 }
 
 func (m *Marshaller) unmarshalMapStart(ancestry []ancestor) (delim, end []byte, is bool) {
-	var start []byte
 	if m.hasBrackets {
 		if m.isMatch(m.MapStart) {
 			m.Inc(len(m.MapStart))
@@ -1048,6 +1091,7 @@ func (m *Marshaller) unmarshalMapStart(ancestry []ancestor) (delim, end []byte, 
 			return m.ValEnd, m.MapEnd, true
 		}
 	} else {
+		var start []byte
 		if start, delim, end = m.bracketlessMapComponents(ancestry); start != nil {
 			if m.isMatch(start) {
 				m.Inc(len(start))

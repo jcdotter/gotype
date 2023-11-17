@@ -5,7 +5,6 @@
 package gotype
 
 import (
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -23,103 +22,10 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	m := MarshallerYaml
-	m = MarshallerJson
-	//m.Format = true
-	//m.CascadeOnlyDeep = true
-	m.Init()
-	//table := [][]string{{"Type", "Value"}}
-	v1 := []map[string]map[string]string{
-		{
-			"one": {"two": "three", "four": "five"},
-			"two": {"two": "three", "four": "five"},
-		},
-		{
-			"one": {"two": "three", "four": "five"},
-			"two": {"two": "three", "four": "five"},
-		},
-	}
-	b := m.Marshal(v1)
-	fmt.Println(string(b))
-	s := m.Unmarshal().Slice()
-	fmt.Println(s)
-	fmt.Println()
-	m.Reset()
-	v2 := map[string][]map[string]string{
-		"one": {
-			{"two": "three", "four": "five"},
-			{"two": "three", "four": "five"},
-		},
-		"two": {
-			{"two": "three", "four": "five"},
-			{"two": "three", "four": "five"},
-		},
-	}
-	b = m.Marshal(v2)
-	fmt.Println(string(b))
-	h := m.Unmarshal().Map()
-	fmt.Println(h)
-	fmt.Println()
-	m.Reset()
-	v3 := map[string][]string{
-		"one": {"two", "three", "four", "five"},
-		"two": {"two", "three", "four", "five"},
-	}
-	b = m.Marshal(v3)
-	fmt.Println(string(b))
-	h = m.Unmarshal().Map()
-	fmt.Println(h)
-	fmt.Println()
-	m.Reset()
-	v4 := []string{"false", "false"}
-	b = m.Marshal(v4)
-	fmt.Println(string(b))
-	s = m.Unmarshal().Slice()
-	fmt.Println(s)
-	fmt.Println()
-	m.Reset()
-	v5 := s
-	b = m.Marshal(v5)
-	fmt.Println(string(b))
-	s = m.Unmarshal().Slice()
-	fmt.Println(s)
-	/* for n, v := range getTestVars() {
-		if n == "[2]map[string]string{2}" {
-			m.Reset()
-			b, _ := m.Marshal(v)
-			//table = append(table, []string{n, string(b)})
-			fmt.Println("\n" + n + ":")
-			fmt.Println(string(b))
-		}
-	}
-	/* SortByCol(table, 0)
-	test.PrintTable(table, true) */
-}
-
-func TestTest2(t *testing.T) {
-	c := "# this is a yaml comment\n"
-	y := c + `
-one: two
-three: 
-  - four
-  - five
-  - six:
-      # this is a yaml comment
-      seven: eight
-      nine: ten
-`
-	m := MarshallerYaml
-	m.Init()
-	m.Unmarshal([]byte(y))
-	fmt.Println(m.buffer)
-	fmt.Println(m.value)
-	fmt.Println(m.value.(map[string]any)["three"].([]any)[2].(map[string]any)["six"].(map[string]any)["nine"])
-	h := m.Unmarshal().Map()
-	fmt.Println(h)
 }
 
 func BenchmarkTest(b *testing.B) {
-	m := MarshallerYaml
+	m := YamlMarshaller
 	m.Init()
 	v1 := map[string]string{
 		"one":   "two",
@@ -127,12 +33,10 @@ func BenchmarkTest(b *testing.B) {
 		"three": "two",
 		"four":  "two",
 	}
-	var e []byte
 	for i := 0; i < b.N; i++ {
 		m.Reset()
-		e = m.Marshal(v1)
+		m.Marshal(v1)
 	}
-	e = e
 }
 
 func TestAll(t *testing.T) {
@@ -253,7 +157,7 @@ func TestValueIndex(t *testing.T) {
 
 func TestValueSerialize(t *testing.T) {
 	gt := test.New(t, config)
-	gt.Msg = "Testing ValueOf(%s).Serialize()"
+	gt.Msg = "Testing ValueOf(%s).json()"
 	var (
 		s  = "s"
 		a  = [2]string{"s", "s"}
@@ -270,30 +174,30 @@ func TestValueSerialize(t *testing.T) {
 		pa1 = [1]*string{&s}
 		pd1 = string_ptr_struct_single{&s}
 	)
-	gt.Equal(`"s"`, ValueOf(s).Serialize(), "string")
-	gt.Equal(`["s","s"]`, ValueOf(a).Serialize(), "array")
-	gt.Equal(`["s","s"]`, ValueOf(l).Serialize(), "slice")
-	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).Serialize(), "map")
-	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).Serialize(), "struct")
-	gt.Equal(`["s"]`, ValueOf(a1).Serialize(), "array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(d1).Serialize(), "struct(1)")
+	gt.Equal(`"s"`, ValueOf(s).json(), "string")
+	gt.Equal(`["s","s"]`, ValueOf(a).json(), "array")
+	gt.Equal(`["s","s"]`, ValueOf(l).json(), "slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).json(), "map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).json(), "struct")
+	gt.Equal(`["s"]`, ValueOf(a1).json(), "array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(d1).json(), "struct(1)")
 
-	gt.Equal(`"s"`, ValueOf(&s).Serialize(), "*string")
-	gt.Equal(`["s","s"]`, ValueOf(&pa).Serialize(), "*array")
-	gt.Equal(`["s","s"]`, ValueOf(&pl).Serialize(), "*slice")
-	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Serialize(), "*map")
-	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Serialize(), "*struct")
-	gt.Equal(`["s"]`, ValueOf(&pa1).Serialize(), "*array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Serialize(), "*struct(1)")
+	gt.Equal(`"s"`, ValueOf(&s).json(), "*string")
+	gt.Equal(`["s","s"]`, ValueOf(&pa).json(), "*array")
+	gt.Equal(`["s","s"]`, ValueOf(&pl).json(), "*slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).json(), "*map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).json(), "*struct")
+	gt.Equal(`["s"]`, ValueOf(&pa1).json(), "*array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).json(), "*struct(1)")
 }
 
 func TestValueSerializePrint(t *testing.T) {
 	gt := test.New(t, config)
-	gt.Msg = "Testing ValueOf(%s).Serialize() key: %s\n  value:\t%s"
+	gt.Msg = "Testing ValueOf(%s).json() key: %s\n  value:\t%s"
 	err := "%!v(PANIC=String method: runtime error: invalid memory address or nil pointer dereference)"
 	for n, v := range getTestVars() {
 		val := ValueOf(v)
-		s := STRING(val.Serialize())
+		s := STRING(val.json())
 		gt.False(s == "" || s.Contains(err), val.typ, n, s)
 	}
 }
@@ -317,23 +221,23 @@ func TestValueMarshalJson(t *testing.T) {
 		pa1 = [1]*string{&s}
 		pd1 = string_ptr_struct_single{&s}
 	)
-	gt.Equal(`"s"`, ValueOf(s).Marshal(MarshallerJson).String(), "string")
-	gt.Equal(`["s","s"]`, ValueOf(a).Marshal(MarshallerJson).String(), "array")
-	gt.Equal(`["s","s"]`, ValueOf(l).Marshal(MarshallerJson).String(), "slice")
-	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).Marshal(MarshallerJson).String(), "map")
-	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).Marshal(MarshallerJson).String(), "struct")
-	gt.Equal(`["s"]`, ValueOf(a1).Marshal(MarshallerJson).String(), "array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(d1).Marshal(MarshallerJson).String(), "struct(1)")
+	gt.Equal(`"s"`, ValueOf(s).Marshal(JsonMarshaller).String(), "string")
+	gt.Equal(`["s","s"]`, ValueOf(a).Marshal(JsonMarshaller).String(), "array")
+	gt.Equal(`["s","s"]`, ValueOf(l).Marshal(JsonMarshaller).String(), "slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).Marshal(JsonMarshaller).String(), "map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).Marshal(JsonMarshaller).String(), "struct")
+	gt.Equal(`["s"]`, ValueOf(a1).Marshal(JsonMarshaller).String(), "array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(d1).Marshal(JsonMarshaller).String(), "struct(1)")
 
-	gt.Equal(`"s"`, ValueOf(&s).Marshal(MarshallerJson).String(), "*string")
-	gt.Equal(`["s","s"]`, ValueOf(&pa).Marshal(MarshallerJson).String(), "*array")
-	gt.Equal(`["s","s"]`, ValueOf(&pl).Marshal(MarshallerJson).String(), "*slice")
-	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Marshal(MarshallerJson).String(), "*map")
-	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Marshal(MarshallerJson).String(), "*struct")
-	gt.Equal(`["s"]`, ValueOf(&pa1).Marshal(MarshallerJson).String(), "*array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Marshal(MarshallerJson).String(), "*struct(1)")
+	gt.Equal(`"s"`, ValueOf(&s).Marshal(JsonMarshaller).String(), "*string")
+	gt.Equal(`["s","s"]`, ValueOf(&pa).Marshal(JsonMarshaller).String(), "*array")
+	gt.Equal(`["s","s"]`, ValueOf(&pl).Marshal(JsonMarshaller).String(), "*slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Marshal(JsonMarshaller).String(), "*map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Marshal(JsonMarshaller).String(), "*struct")
+	gt.Equal(`["s"]`, ValueOf(&pa1).Marshal(JsonMarshaller).String(), "*array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Marshal(JsonMarshaller).String(), "*struct(1)")
 
-	ms := MarshallerJson
+	ms := JsonMarshaller
 	ms.UnmarshalTyped = true
 	ms.Format = true
 	ms.Init()
@@ -348,13 +252,25 @@ func TestValueMarshalJson(t *testing.T) {
 
 func TestValueMarshalPrint(t *testing.T) {
 	gt := test.New(t, config)
-	gt.Msg = "Testing ValueOf(%s).Serialize() key: %s\n  value:\t%s"
+	gt.Msg = "Testing ValueOf(%s).json() key: %s\n  value:\t%s"
 	err := "%!v(PANIC=String method: runtime error: invalid memory address or nil pointer dereference)"
 	for n, v := range getTestVars() {
 		val := ValueOf(v)
-		s := STRING(val.Marshal(MarshallerJson).String())
+		s := STRING(val.Marshal(JsonMarshaller).String())
 		gt.False(s == "" || s.Contains(err), val.typ, n, s)
 	}
+}
+
+func TestGmapVars(t *testing.T) {
+	gt := test.New(t, config)
+	gt.Msg = "Testing ValueOf(%s).Gmap()"
+	gmap := getTestVarsGmap()
+	table := make([][]string, len(gmap)+1)
+	table[0] = []string{"Index", "Key", "Value"}
+	for i, v := range gmap {
+		table[i+1] = []string{INT(i).String(), v.Key, v.Value.String()}
+	}
+	test.PrintTable(table, true)
 }
 
 func TestValueSetTyped(t *testing.T) {
@@ -1088,17 +1004,17 @@ func TestEncodeBasic(t *testing.T) {
 	gt.Equal(d1Bytes, d1Enc.Bytes(), "struct1")
 
 	gt.Msg = "Testing Encode(%s).Decodex()"
-	gt.Equal(bDecVal.Serialize(), bDec.Serialize(), "bool")
-	gt.Equal(iDecVal.Serialize(), iDec.Serialize(), "int")
-	gt.Equal(fDecVal.Serialize(), fDec.Serialize(), "float")
-	gt.Equal(sDecVal.Serialize(), sDec.Serialize(), "string")
-	gt.Equal(aDecVal.Serialize(), aDec.Serialize(), "array")
-	gt.Equal(lDecVal.Serialize(), lDec.Serialize(), "slice")
-	gt.Equal(mDecVal.Serialize(), mDec.Serialize(), "map")
-	gt.Equal(dDecVal.Serialize(), dDec.Serialize(), "struct")
-	gt.Equal(a1DecVal.Serialize(), a1Dec.Serialize(), "array1")
-	gt.Equal(l1DecVal.Serialize(), l1Dec.Serialize(), "slice1")
-	gt.Equal(d1DecVal.Serialize(), d1Dec.Serialize(), "struct1")
+	gt.Equal(bDecVal.Json(), bDec.Json(), "bool")
+	gt.Equal(iDecVal.Json(), iDec.Json(), "int")
+	gt.Equal(fDecVal.Json(), fDec.Json(), "float")
+	gt.Equal(sDecVal.Json(), sDec.Json(), "string")
+	gt.Equal(aDecVal.Json(), aDec.Json(), "array")
+	gt.Equal(lDecVal.Json(), lDec.Json(), "slice")
+	gt.Equal(mDecVal.Json(), mDec.Json(), "map")
+	gt.Equal(dDecVal.Json(), dDec.Json(), "struct")
+	gt.Equal(a1DecVal.Json(), a1Dec.Json(), "array1")
+	gt.Equal(l1DecVal.Json(), l1Dec.Json(), "slice1")
+	gt.Equal(d1DecVal.Json(), d1Dec.Json(), "struct1")
 
 	gt.Msg = "Testing Decode(Encode(%[1]s), *%[1]s)"
 	var (
@@ -1180,7 +1096,7 @@ func TestValueScan(t *testing.T) {
 	d := &[]*string_struct{}
 	SliceOf(s).ScanList(d)
 	r := `[{"V1":"one","V2":"two"},{"V1":"three","V2":"four"}]`
-	gt.Equal(r, ValueOf(d).Serialize())
+	gt.Equal(r, ValueOf(d).json())
 	m := []*map[string]int{
 		{"one": 1, "two": 2},
 		{"one": 3, "two": 4},
@@ -1192,7 +1108,7 @@ func TestValueScan(t *testing.T) {
 	d1 := &[]*stest{}
 	SliceOf(m).ScanList(d1, "json")
 	r = `[{"One":"1","Two":"2"},{"One":"3","Two":"4"}]`
-	gt.Equal(r, ValueOf(d1).Serialize())
+	gt.Equal(r, ValueOf(d1).json())
 
 }
 

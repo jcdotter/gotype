@@ -4,7 +4,9 @@
 
 package gotype
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 type FIELD struct {
 	typ    *TYPE
@@ -143,9 +145,6 @@ func getTagValue(rawtag string, tagname string, q byte) string {
 }
 
 func parseTagName(t string, start int, l int) (tag string, end int, inTag bool, inValue bool) {
-	if t[start] == 32 {
-		panic("misformatted struct tag")
-	}
 	for end = start; end < l; end++ {
 		if t[end] == 58 {
 			inValue, tag = true, t[start:end]

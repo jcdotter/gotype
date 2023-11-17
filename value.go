@@ -557,7 +557,7 @@ func (v VALUE) convert(typ *TYPE) VALUE {
 	}
 }
 
-func (v VALUE) Serialize() string {
+func (v VALUE) json() string {
 	if v.ptr == nil {
 		return "null"
 	}
@@ -565,27 +565,27 @@ func (v VALUE) Serialize() string {
 	default:
 		return v.String()
 	case String:
-		return (*STRING)(v.ptr).Serialize()
+		return (*STRING)(v.ptr).json()
 	case Bytes:
-		return (*BYTES)(v.ptr).STRING().Serialize()
+		return (*BYTES)(v.ptr).STRING().json()
 	case Array:
-		return (ARRAY)(v).Serialize(ancestor{v.typ, v.Uintptr()})
+		return (ARRAY)(v).json(ancestor{v.typ, v.Uintptr()})
 	case Map:
-		return (MAP)(v).Serialize(ancestor{v.typ, v.Uintptr()})
+		return (MAP)(v).json(ancestor{v.typ, v.Uintptr()})
 	case Pointer:
 		p := v.Elem()
 		if p.ptr == nil {
 			return "null"
 		}
-		return p.SetType().Serialize()
+		return p.SetType().json()
 	case Slice:
-		return (SLICE)(v).Serialize(ancestor{v.typ, v.Uintptr()})
+		return (SLICE)(v).json(ancestor{v.typ, v.Uintptr()})
 	case Struct:
-		return (STRUCT)(v).Serialize(ancestor{v.typ, v.Uintptr()})
+		return (STRUCT)(v).json(ancestor{v.typ, v.Uintptr()})
 	case Time:
-		return (*TIME)(v.ptr).Serialize()
+		return (*TIME)(v.ptr).json()
 	case Uuid:
-		return (*UUID)(v.ptr).Serialize()
+		return (*UUID)(v.ptr).json()
 	}
 }
 
@@ -594,13 +594,13 @@ type ancestor struct {
 	pointer uintptr
 }
 
-func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
+func (v VALUE) jsonSafe(ancestry ...ancestor) (s string, recursive bool) {
 	if v.ptr == nil {
 		return "null", false
 	}
 	k := v.KIND()
 	if k.IsBasic() {
-		return v.Serialize(), false
+		return v.json(), false
 	}
 	if k != Array && k != Struct && v.Pointer() == nil {
 		return "null", false
@@ -614,24 +614,24 @@ func (v VALUE) serialSafe(ancestry ...ancestor) (s string, recursive bool) {
 	ancestry = append(ancestry, ancestor{v.typ, uptr})
 	switch k {
 	case Array:
-		return (ARRAY)(v).Serialize(ancestry...), false
+		return (ARRAY)(v).json(ancestry...), false
 	case Map:
-		return (MAP)(v).Serialize(ancestry...), false
+		return (MAP)(v).json(ancestry...), false
 	case Pointer:
-		return v.Elem().SetType().serialSafe(ancestry...)
+		return v.Elem().SetType().jsonSafe(ancestry...)
 	case Slice:
-		return (SLICE)(v).Serialize(ancestry...), false
+		return (SLICE)(v).json(ancestry...), false
 	case Struct:
 		switch v.typ {
 		case TypeOf(VALUE{}):
-			return v.Interface().(VALUE).serialSafe(ancestry...)
+			return v.Interface().(VALUE).jsonSafe(ancestry...)
 		case TypeOf(TYPE{}):
 			return `"` + (*TYPE)(v.ptr).Name() + `"`, false
 		default:
-			return (STRUCT)(v).Serialize(ancestry...), false
+			return (STRUCT)(v).json(ancestry...), false
 		}
 	default:
-		return v.Serialize(), false
+		return v.json(), false
 	}
 }
 
@@ -733,4 +733,10 @@ func (v VALUE) InspectDataElems() bool {
 
 func (v VALUE) IsData() bool {
 	return v.typ.IsData()
+}
+
+func (v VALUE) Copy() VALUE {
+	n := v.New()
+	n.setMatched(v)
+	return n
 }

@@ -95,8 +95,8 @@ func (u UUID) STRING() STRING {
 	return STRING(u.Native().String())
 }
 
-// Serialize returns gotype UUID as serialized string
-func (u UUID) Serialize() string {
+// json returns gotype UUID as serialized json string
+func (u UUID) json() string {
 	return `"` + u.String() + `"`
 }
 

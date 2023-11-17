@@ -197,13 +197,13 @@ func (s SLICE) ARRAY() ARRAY {
 	return (ARRAY)(s)
 }
 
-// String returns gotype SLICE as a serialized string
+// String returns gotype SLICE as a serialized json string
 func (s SLICE) String() string {
-	return s.Serialize()
+	return (VALUE)(s).Marshal(JsonMarshaller).String()
 }
 
-// Serialize returns gotype SLICE as a serialized string
-func (s SLICE) Serialize(ancestry ...ancestor) (S string) {
+// json returns gotype SLICE as a serialized json string
+func (s SLICE) json(ancestry ...ancestor) (S string) {
 	if s.ptr == nil || *(*unsafe.Pointer)(s.ptr) == nil {
 		return "null"
 	}
@@ -211,7 +211,7 @@ func (s SLICE) Serialize(ancestry ...ancestor) (S string) {
 		return "[]"
 	}
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		sval, recursive := v.serialSafe(ancestry...)
+		sval, recursive := v.jsonSafe(ancestry...)
 		if !recursive {
 			S += "," + sval
 		}
@@ -355,7 +355,7 @@ func (s SLICE) ScanList(dest any, tags ...string) {
 
 // JSON returns gotype SLICE as gotype JSON
 func (s SLICE) JSON() JSON {
-	return JSON(s.Serialize())
+	return (VALUE)(s).Marshal(JsonMarshaller).Bytes()
 }
 
 // COMPLEX SORTING
