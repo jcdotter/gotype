@@ -323,10 +323,10 @@ func (v VALUE) Marshal(m *Marshaller) *Marshaller {
 }
 
 func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
-	v = v.SetType()
 	if v.ptr == nil {
 		m.ToBuffer(m.Null)
 	}
+	v = v.SetType()
 	switch v.KIND() {
 	case Bool:
 		m.marshalBool(v.Bool())
