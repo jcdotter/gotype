@@ -325,8 +325,8 @@ func (v VALUE) Marshal(m *Marshaller) *Marshaller {
 func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
 	if v.ptr == nil {
 		m.ToBuffer(m.Null)
+		return
 	}
-	v = v.SetType()
 	switch v.KIND() {
 	case Bool:
 		m.marshalBool(v.Bool())
@@ -421,10 +421,6 @@ func (m *Marshaller) marshalNum(v VALUE) {
 }
 
 func (m *Marshaller) marshalArray(a ARRAY, ancestry ...ancestor) {
-	if a.ptr == nil {
-		m.ToBuffer(m.Null)
-		return
-	}
 	if a.Len() == 0 {
 		if !m.hasBrackets {
 			m.ToBuffer(m.Null)
@@ -463,25 +459,19 @@ func (m *Marshaller) marshalFunc(v VALUE) {
 }
 
 func (m *Marshaller) marshalInterface(v VALUE) {
-	if v.ptr != nil {
-		if *(*unsafe.Pointer)(v.ptr) != nil {
-			v = v.SetType()
-			if v.Kind() != Interface {
-				m.marshal(v)
-				return
-			}
-			m.Marshal(fmt.Sprint(v.Interface()))
-			return
-		}
-	}
-	m.ToBuffer(m.Null)
-}
-
-func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) {
-	if hm.ptr == nil {
+	if *(*unsafe.Pointer)(v.ptr) == nil {
 		m.ToBuffer(m.Null)
 		return
 	}
+	v = v.SetType()
+	if v.Kind() != Interface {
+		m.marshal(v)
+		return
+	}
+	m.Marshal(fmt.Sprint(v.Interface()))
+}
+
+func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) {
 	if hm.Len() == 0 {
 		if !m.hasBrackets {
 			m.ToBuffer(m.Null)
@@ -518,7 +508,7 @@ func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) {
 }
 
 func (m *Marshaller) marshalSlice(s SLICE, ancestry ...ancestor) {
-	if s.ptr == nil {
+	if *(*unsafe.Pointer)(s.ptr) == nil {
 		m.ToBuffer(m.Null)
 		return
 	}
@@ -571,10 +561,6 @@ func (m *Marshaller) marshalString(s string) {
 }
 
 func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
-	if s.ptr == nil {
-		m.ToBuffer(m.Null)
-		return
-	}
 	if m.marshaltStructByMethod(s) {
 		return
 	}

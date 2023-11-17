@@ -24,21 +24,6 @@ var config = &test.Config{
 func TestTest(t *testing.T) {
 }
 
-func BenchmarkTest(b *testing.B) {
-	m := YamlMarshaller
-	m.Init()
-	v1 := map[string]string{
-		"one":   "two",
-		"two":   "two",
-		"three": "two",
-		"four":  "two",
-	}
-	for i := 0; i < b.N; i++ {
-		m.Reset()
-		m.Marshal(v1)
-	}
-}
-
 func TestAll(t *testing.T) {
 	TestValueOf(t)
 	TestValueNew(t)
