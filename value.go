@@ -469,9 +469,79 @@ func (v VALUE) Extend(n int) VALUE {
 	panic("can only extend slice value")
 }
 
-// IsZero returns true if VALUE is the zero value
+// IsZero returns true if VALUE is the zero value or nil
 func (v VALUE) IsZero() bool {
-	return v.Reflect().IsZero()
+	if v.IsNil() {
+		return true
+	}
+	switch v.Kind() {
+	case Bool:
+		return !*(*bool)(v.ptr)
+	case Int:
+		return *(*int)(v.ptr) == 0
+	case Int8:
+		return *(*int8)(v.ptr) == 0
+	case Int16:
+		return *(*int16)(v.ptr) == 0
+	case Int32:
+		return *(*int32)(v.ptr) == 0
+	case Int64:
+		return *(*int64)(v.ptr) == 0
+	case Uint:
+		return *(*uint)(v.ptr) == 0
+	case Uint8:
+		return *(*uint8)(v.ptr) == 0
+	case Uint16:
+		return *(*uint16)(v.ptr) == 0
+	case Uint32:
+		return *(*uint32)(v.ptr) == 0
+	case Uint64:
+		return *(*uint64)(v.ptr) == 0
+	case Uintptr:
+		return *(*uintptr)(v.ptr) == 0
+	case Float32:
+		return *(*float32)(v.ptr) == 0
+	case Float64:
+		return *(*float64)(v.ptr) == 0
+	case Complex64:
+		return *(*complex64)(v.ptr) == 0
+	case Complex128:
+		return *(*complex128)(v.ptr) == 0
+	case Array:
+		return (ARRAY)(v).Len() == 0
+	case Interface:
+		v = v.SetType()
+		if v.Kind() != Interface {
+			return v.IsZero()
+		}
+	case Map:
+		return (MAP)(v).Len() == 0
+	case Pointer:
+		return v.Elem().IsZero()
+	case Slice:
+		return (SLICE)(v).Len() == 0
+	case String:
+		return *(*string)(v.ptr) == ""
+	case Struct:
+		isZero := true
+		(STRUCT)(v).ForEach(func(i int, k string, e VALUE) (brake bool) {
+			if !e.IsZero() {
+				isZero = false
+				return true
+			}
+			return
+		})
+		return isZero
+	case UnsafePointer:
+		return uintptr(v.ptr) == 0
+	case Time:
+		return *(*TIME)(v.ptr) == TIME{}
+	case Uuid:
+		return *(*UUID)(v.ptr) == UUID{}
+	case Bytes:
+		return (SLICE)(v).Len() == 0
+	}
+	return false
 }
 
 // IsNil returns true if VALUE is nil
@@ -482,11 +552,10 @@ func (v VALUE) IsNil() bool {
 	switch v.Kind() {
 	case Pointer:
 		return v.Elem().IsNil()
-	case Slice, Interface:
+	case Slice, Interface, UnsafePointer, Map:
 		return *(*unsafe.Pointer)(v.ptr) == nil
 	}
 	return false
-	//return v.Reflect().IsNil()
 }
 
 // ------------------------------------------------------------ /

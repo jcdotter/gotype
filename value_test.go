@@ -36,10 +36,12 @@ func TestTest(t *testing.T) {
 	d := []map[string]any{
 		{
 			"Name": "test",
+			"Type": "test",
 			"List": []string{"test", "test2"},
 			"MapList": []map[string]any{
 				{
 					"Name": "test",
+					"Type": "test",
 					"Bool": true,
 					"List": []string{"test", "test2"},
 					"Map": map[string]any{
@@ -49,6 +51,7 @@ func TestTest(t *testing.T) {
 				},
 				{
 					"Name": "test",
+					"Type": "test",
 					"Bool": true,
 					"List": []string{"test", "test2"},
 					"Map": map[string]any{
@@ -60,10 +63,12 @@ func TestTest(t *testing.T) {
 		},
 		{
 			"Name": "test",
+			"Type": "test",
 			"List": []string{"test", "test2"},
 			"MapList": []map[string]any{
 				{
 					"Name": "test",
+					"Type": "test",
 					"Bool": true,
 					"List": []string{"test", "test2"},
 					"Map": map[string]any{
@@ -73,6 +78,7 @@ func TestTest(t *testing.T) {
 				},
 				{
 					"Name": "test",
+					"Type": "test",
 					"Bool": true,
 					"List": []string{"test", "test2"},
 					"Map": map[string]any{
@@ -85,11 +91,56 @@ func TestTest(t *testing.T) {
 	}
 	m := YamlMarshaller
 	s := m.Marshal(d).String()
+	fmt.Println(s)
+	/* l := m.Unmarshal([]byte(s)).Slice()
+	fmt.Println(m.Marshal(l).String()) */
 	l := m.Unmarshal([]byte(s)).Slice()
+	fmt.Println("yaml completed...")
 	m = JsonMarshaller
 	m.Format = true
 	m.Init()
 	fmt.Println(m.Marshal(l).String())
+
+	/* m := JsonMarshaller
+	m.Format = true
+	m.Init()
+	fmt.Println(m.Marshal(d).String()) */
+}
+
+func TestZero(t *testing.T) {
+	i := 0
+	f := 0.0
+	s := ""
+	b := false
+	a := [2]string{}
+	l := []string{}
+	m := map[string]string{}
+	d := string_struct{}
+	a1 := [1]string{}
+	d1 := string_struct_single{}
+	p := &i
+
+	fmt.Println(i, ValueOf(i).Pointer())
+	fmt.Println(f, ValueOf(f).Pointer())
+	fmt.Println(s, ValueOf(s).Pointer())
+	fmt.Println(b, ValueOf(b).Pointer())
+	fmt.Println(a, ValueOf(a).Pointer())
+	fmt.Println(l, ValueOf(l).Pointer())
+	fmt.Println(m, ValueOf(m).Pointer())
+	fmt.Println(d, ValueOf(d).Pointer())
+	fmt.Println(a1, ValueOf(a1).Pointer())
+	fmt.Println(d1, ValueOf(d1).Pointer())
+	fmt.Println(p, ValueOf(p).Pointer())
+}
+
+func TestKind(t *testing.T) {
+	/* i := 0
+	s := ""
+	l := map[string]any{
+		"one": i,
+		"two": s,
+	}
+	fmt.Println(ValueOf(l).DataElemKind()) */
 }
 
 func TestAll(t *testing.T) {

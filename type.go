@@ -166,6 +166,13 @@ func (t *TYPE) Elem() *TYPE {
 	return t
 }
 
+func (t *TYPE) DeepPtrElem() *TYPE {
+	for t.Kind() == Pointer {
+		t = (*ptrType)(unsafe.Pointer(t)).elem
+	}
+	return t
+}
+
 // IsData returns true if the TYPE stores data
 // which includes Array, Chan, Map, Slice, Struct, Bytes, Interface
 // or is a pointer to one these types

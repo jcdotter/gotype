@@ -30,19 +30,19 @@ func BenchmarkSerialize(b *testing.B) {
 }
 
 func BenchmarkMarshaller(b *testing.B) {
-	var s string
+	//var s string
 	for _, v := range getTestVarsGmap() {
-		b.Run(STRING(v.Key).Width(35)+"-Serial", func(b *testing.B) {
+		/* b.Run(STRING(v.Key).Width(35)+"-Serial", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				s = v.Value.json()
+				v.Value.json()
 			}
-		})
+		}) */
 		b.Run(STRING(v.Key).Width(35)+"-Marshl", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				v.Value.Marshal(JsonMarshaller)
 			}
 		})
-		b.Run(STRING(v.Key).Width(35)+"-DeSerial", func(b *testing.B) {
+		/* b.Run(STRING(v.Key).Width(35)+"-DeSerial", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				STRING(s).UnmarshalJson()
 			}
@@ -51,7 +51,7 @@ func BenchmarkMarshaller(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				JsonMarshaller.Unmarshal()
 			}
-		})
+		}) */
 	}
 }
 

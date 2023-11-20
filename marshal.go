@@ -61,7 +61,7 @@ type Marshaller struct {
 	RecursiveName    bool // when true, include name, string or type of recursive struct value in marshalling, otherwise, exclude all
 	UnmarshalTyped   bool // when true, unmarshal to typed values (int, float64, bool, string) instead of just strings
 	MarshalMethods   bool // when true, marshal structs with a Marshal method by calling the method
-	IncludeNulls     bool // when true, marshal nil values as null, otherwise, exclude them
+	ExcludeZeros     bool // when true, exclude zero and nil values from marshalling
 	// marshaller cache
 	space      []byte
 	quote      []byte
@@ -97,6 +97,7 @@ var (
 		CascadeOnlyDeep:   true,
 		QuotedKey:         true,
 		QuotedString:      true,
+		ExcludeZeros:      true,
 		Space:             []byte(" \t\n\v\f\r"),
 		Indent:            []byte("  "),
 		Quote:             []byte(`"`),
@@ -117,6 +118,7 @@ var (
 		Format:           true,
 		FormatWithSpaces: true,
 		QuotedSpecial:    true,
+		ExcludeZeros:     true,
 		Space:            []byte(" \t\v\f\r"),
 		Indent:           []byte("  "),
 		Quote:            []byte(`"'`),
@@ -591,16 +593,21 @@ func (m *Marshaller) marshalSliceComponents(v VALUE, ancestry []ancestor) (start
 	if !m.Format {
 		return m.SliceStart, m.ValEnd, m.SliceEnd
 	}
-	path := m.ancestryPath(v.typ, ancestry)
+	path, hasDataElem := m.ancestryPath(v, ancestry)
+	fmt.Println(path)
 	if parts, ok := m.sliceParts[path]; ok {
+		fmt.Println("  stored parts")
 		return parts[0], parts[1], parts[2]
 	}
 	switch {
-	case m.CascadeOnlyDeep && !v.HasDataElem():
+	case m.CascadeOnlyDeep && !hasDataElem:
+		fmt.Println("  inline parts")
 		start, delim, end = m.InlineSyntax.SliceStart, m.ivalEnd, m.InlineSyntax.SliceEnd
 	case m.hasBrackets:
+		fmt.Println("  formatted parts")
 		start, delim, end = m.formattedSliceComponents(ancestry)
 	default:
+		fmt.Println("  bracketless parts")
 		start, delim, end = m.bracketlessSliceComponents(ancestry)
 	}
 	m.sliceParts[path] = [3][]byte{start, delim, end}
@@ -635,17 +642,21 @@ func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start [
 	if !m.Format {
 		return m.MapStart, m.ValEnd, m.MapEnd
 	}
-	path := m.ancestryPath(v.typ, ancestry)
+	path, hasDataElem := m.ancestryPath(v, ancestry)
 	fmt.Println(path)
 	if parts, ok := m.mapParts[path]; ok {
+		fmt.Println("  stored parts")
 		return parts[0], parts[1], parts[2]
 	}
 	switch {
-	case m.Format && m.CascadeOnlyDeep && !v.HasDataElem():
+	case m.Format && m.CascadeOnlyDeep && !hasDataElem:
+		fmt.Println("  inline parts")
 		start, delim, end = m.InlineSyntax.MapStart, m.ivalEnd, m.InlineSyntax.MapEnd
 	case m.hasBrackets:
+		fmt.Println("  formatted parts")
 		start, delim, end = m.formattedMapComponents(ancestry)
 	default:
+		fmt.Println("  bracketless parts")
 		start, delim, end = m.bracketlessMapComponents(ancestry)
 	}
 	m.mapParts[path] = [3][]byte{start, delim, end}
@@ -728,8 +739,8 @@ func (m *Marshaller) marshalElem(i int, delim, k []byte, v VALUE, ancestry []anc
 		}
 		k = AppendBytes(q, k, q, m.keyEnd)
 	}
-	if v.IsNil() {
-		if m.IncludeNulls {
+	if v.IsZero() {
+		if !m.ExcludeZeros {
 			i++
 			m.SetBuffer(m.buffer, delim, k, m.Null)
 			return i
@@ -821,20 +832,88 @@ func (m *Marshaller) recursiveValue(v VALUE, ancestry []ancestor) (bytes []byte,
 	return nil, false
 }
 
-func (m *Marshaller) ancestryPath(current *TYPE, ancestry []ancestor) (path string) {
-	path += m.ancestryPathVal(current)
+func (m *Marshaller) ancestryPath(v VALUE, ancestry []ancestor) (path string, hasDataElem bool) {
+	elKind := m.dataElemKind(v)
+	if elKind != Invalid {
+		hasDataElem = true
+	}
+	path += m.ancestryPathVal(elKind) + m.ancestryPathVal(v.Kind())
 	for _, a := range ancestry {
-		path += m.ancestryPathVal(a.typ)
+		path += m.ancestryPathVal(a.typ.Kind())
 	}
 	return
 }
 
-func (m *Marshaller) ancestryPathVal(t *TYPE) string {
-	switch t.Kind() {
+func (m *Marshaller) ancestryPathVal(k KIND) string {
+	switch k {
 	case Map, Struct:
 		return ":Map"
-	default:
+	case Slice, Array:
 		return ":Slice"
+	case Interface:
+		return ":Interface"
+	default:
+		return ":Value"
+	}
+}
+
+func (m *Marshaller) dataElemKind(v VALUE) (kind KIND) {
+	f := func(i int, k string, e VALUE) (brake bool) {
+		if i == 0 {
+			kind = m.marshalKind(e.SetType().typ)
+			return
+		}
+		if m.marshalKind(e.SetType().typ) != kind {
+			kind = Interface
+			return true
+		}
+		return
+	}
+	switch v.Kind() {
+	case Array:
+		kind = m.marshalKind((*arrayType)(unsafe.Pointer(v.typ)).elem)
+		if kind == Interface {
+			(ARRAY)(v).ForEach(f)
+		}
+		return
+	case Interface:
+		if v := v.SetType(); v.Kind() == Interface {
+			return Interface
+		}
+		return m.dataElemKind(v)
+	case Map:
+		kind = m.marshalKind((*mapType)(unsafe.Pointer(v.typ)).elem)
+		if kind == Interface {
+			(MAP)(v).ForEach(f)
+		}
+		return
+	case Pointer:
+		return m.dataElemKind(v.Elem())
+	case Slice:
+		kind = m.marshalKind((*sliceType)(unsafe.Pointer(v.typ)).elem)
+		if kind == Interface {
+			(SLICE)(v).ForEach(f)
+		}
+		return
+	case Struct:
+		kind = m.marshalKind((*structType)(unsafe.Pointer(v.typ)).fields[0].typ)
+		(STRUCT)(v).ForEach(f)
+		return
+	default:
+		return Invalid
+	}
+}
+
+func (m *Marshaller) marshalKind(t *TYPE) KIND {
+	switch t.DeepPtrElem().Kind() {
+	case Array, Slice:
+		return Slice
+	case Map, Struct:
+		return Map
+	case Interface:
+		return Interface
+	default:
+		return Invalid
 	}
 }
 
