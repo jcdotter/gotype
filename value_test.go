@@ -23,7 +23,7 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
-	d := map[string][]map[string]string{
+	/* d := map[string][]map[string]string{
 		"test": {
 			{"test": "test", "test2": "test2"},
 			{"test": "test", "test2": "test2"},
@@ -32,10 +32,64 @@ func TestTest(t *testing.T) {
 			{"test": "test", "test2": "test2"},
 			{"test": "test", "test2": "test2"},
 		},
+	} */
+	d := []map[string]any{
+		{
+			"Name": "test",
+			"List": []string{"test", "test2"},
+			"MapList": []map[string]any{
+				{
+					"Name": "test",
+					"Bool": true,
+					"List": []string{"test", "test2"},
+					"Map": map[string]any{
+						"Name": "test",
+						"Bool": true,
+					},
+				},
+				{
+					"Name": "test",
+					"Bool": true,
+					"List": []string{"test", "test2"},
+					"Map": map[string]any{
+						"Name": "test",
+						"Bool": true,
+					},
+				},
+			},
+		},
+		{
+			"Name": "test",
+			"List": []string{"test", "test2"},
+			"MapList": []map[string]any{
+				{
+					"Name": "test",
+					"Bool": true,
+					"List": []string{"test", "test2"},
+					"Map": map[string]any{
+						"Name": "test",
+						"Bool": true,
+					},
+				},
+				{
+					"Name": "test",
+					"Bool": true,
+					"List": []string{"test", "test2"},
+					"Map": map[string]any{
+						"Name": "test",
+						"Bool": true,
+					},
+				},
+			},
+		},
 	}
 	m := YamlMarshaller
+	s := m.Marshal(d).String()
+	l := m.Unmarshal([]byte(s)).Slice()
+	m = JsonMarshaller
+	m.Format = true
 	m.Init()
-	fmt.Println(m.Marshal(d).String())
+	fmt.Println(m.Marshal(l).String())
 }
 
 func TestAll(t *testing.T) {

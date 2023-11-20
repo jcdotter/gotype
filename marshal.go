@@ -591,7 +591,7 @@ func (m *Marshaller) marshalSliceComponents(v VALUE, ancestry []ancestor) (start
 	if !m.Format {
 		return m.SliceStart, m.ValEnd, m.SliceEnd
 	}
-	path := m.ancestryPath(ancestry)
+	path := m.ancestryPath(v.typ, ancestry)
 	if parts, ok := m.sliceParts[path]; ok {
 		return parts[0], parts[1], parts[2]
 	}
@@ -599,7 +599,7 @@ func (m *Marshaller) marshalSliceComponents(v VALUE, ancestry []ancestor) (start
 	case m.CascadeOnlyDeep && !v.HasDataElem():
 		start, delim, end = m.InlineSyntax.SliceStart, m.ivalEnd, m.InlineSyntax.SliceEnd
 	case m.hasBrackets:
-		start, delim, end = m.formattedSliceComponents()
+		start, delim, end = m.formattedSliceComponents(ancestry)
 	default:
 		start, delim, end = m.bracketlessSliceComponents(ancestry)
 	}
@@ -607,7 +607,7 @@ func (m *Marshaller) marshalSliceComponents(v VALUE, ancestry []ancestor) (start
 	return
 }
 
-func (m *Marshaller) formattedSliceComponents() (start []byte, delim []byte, end []byte) {
+func (m *Marshaller) formattedSliceComponents(ancestry []ancestor) (start []byte, delim []byte, end []byte) {
 	in := bytes.Repeat(m.Indent, m.curIndent)
 	start = AppendBytes(m.SliceStart, m.LineBreak, in, m.Indent, m.SliceItem)
 	delim = AppendBytes(m.valEnd, m.LineBreak, in, m.Indent, m.SliceItem)
@@ -635,7 +635,8 @@ func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start [
 	if !m.Format {
 		return m.MapStart, m.ValEnd, m.MapEnd
 	}
-	path := m.ancestryPath(ancestry)
+	path := m.ancestryPath(v.typ, ancestry)
+	fmt.Println(path)
 	if parts, ok := m.mapParts[path]; ok {
 		return parts[0], parts[1], parts[2]
 	}
@@ -643,7 +644,7 @@ func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start [
 	case m.Format && m.CascadeOnlyDeep && !v.HasDataElem():
 		start, delim, end = m.InlineSyntax.MapStart, m.ivalEnd, m.InlineSyntax.MapEnd
 	case m.hasBrackets:
-		start, delim, end = m.formattedMapComponents()
+		start, delim, end = m.formattedMapComponents(ancestry)
 	default:
 		start, delim, end = m.bracketlessMapComponents(ancestry)
 	}
@@ -651,7 +652,7 @@ func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start [
 	return
 }
 
-func (m *Marshaller) formattedMapComponents() (start []byte, delim []byte, end []byte) {
+func (m *Marshaller) formattedMapComponents(ancestry []ancestor) (start []byte, delim []byte, end []byte) {
 	in := bytes.Repeat(m.Indent, m.curIndent)
 	start = AppendBytes(m.MapStart, m.LineBreak, in, m.Indent)
 	delim = AppendBytes(m.valEnd, m.LineBreak, in, m.Indent)
@@ -820,16 +821,21 @@ func (m *Marshaller) recursiveValue(v VALUE, ancestry []ancestor) (bytes []byte,
 	return nil, false
 }
 
-func (m *Marshaller) ancestryPath(ancestry []ancestor) (path string) {
+func (m *Marshaller) ancestryPath(current *TYPE, ancestry []ancestor) (path string) {
+	path += m.ancestryPathVal(current)
 	for _, a := range ancestry {
-		switch a.typ.Kind() {
-		case Map, Struct:
-			path += ":Map"
-		default:
-			path += ":Slice"
-		}
+		path += m.ancestryPathVal(a.typ)
 	}
 	return
+}
+
+func (m *Marshaller) ancestryPathVal(t *TYPE) string {
+	switch t.Kind() {
+	case Map, Struct:
+		return ":Map"
+	default:
+		return ":Slice"
+	}
 }
 
 // ------------------------------------------------------------ /
