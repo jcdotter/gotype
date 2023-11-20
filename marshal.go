@@ -323,6 +323,13 @@ func (v VALUE) Marshal(m *Marshaller) *Marshaller {
 }
 
 func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
+	/* fmt.Println("marshal called on", v.typ, "with ancesty of:", len(ancestry), "->")
+	if len(ancestry) > 0 {
+		fmt.Println(ancestry[0].typ)
+	}
+	if v.typ.Name() == "gotype.struct2" {
+		os.Exit(1)
+	} */
 	if v.ptr == nil {
 		m.ToBuffer(m.Null)
 		return
@@ -337,11 +344,11 @@ func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
 	case Func:
 		m.marshalFunc(v)
 	case Interface:
-		m.marshalInterface(v)
+		m.marshalInterface(v, ancestry...)
 	case Map:
 		m.marshalMap((MAP)(v), ancestry...)
 	case Pointer:
-		m.marshal(v.Elem())
+		m.marshalPointer(v, ancestry...)
 	case Slice:
 		m.marshalSlice((SLICE)(v), ancestry...)
 	case String:
@@ -458,17 +465,22 @@ func (m *Marshaller) marshalFunc(v VALUE) {
 	m.ToBuffer([]byte(v.typ.Name()))
 }
 
-func (m *Marshaller) marshalInterface(v VALUE) {
+func (m *Marshaller) marshalInterface(v VALUE, ancestry ...ancestor) {
 	if *(*unsafe.Pointer)(v.ptr) == nil {
 		m.ToBuffer(m.Null)
 		return
 	}
 	v = v.SetType()
 	if v.Kind() != Interface {
-		m.marshal(v)
+		m.marshal(v, ancestry...)
 		return
 	}
 	m.Marshal(fmt.Sprint(v.Interface()))
+}
+
+func (m *Marshaller) marshalPointer(v VALUE, ancestry ...ancestor) {
+	ancestry = append([]ancestor{{v.typ, v.Uintptr()}}, ancestry...)
+	m.marshal(v.Elem(), ancestry...)
 }
 
 func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) {
@@ -573,7 +585,7 @@ func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
 		return
 	}
 	start, delim, end := m.marshalMapComponents((VALUE)(s), ancestry)
-	ancestry = append([]ancestor{{s.typ, uintptr(s.ptr)}}, ancestry...)
+	ancestry = append([]ancestor{{s.typ, (VALUE)(s).Uintptr()}}, ancestry...)
 	m.marshalStructTag(s)
 	m.ToBuffer(start)
 	m.IncDepth()
@@ -822,19 +834,22 @@ func IsSpecialChar(b byte) bool {
 
 func (m *Marshaller) recursiveValue(v VALUE, ancestry []ancestor) (bytes []byte, is bool) {
 	for _, a := range ancestry {
-		if a.pointer == uintptr(v.ptr) && a.typ == v.typ {
+		if a.pointer == v.Uintptr() && a.typ == v.typ {
 			is = true
 			if v.Kind() == Struct && m.RecursiveName {
 				if m, ok := v.typ.Reflect().MethodByName("Name"); ok {
-					bytes = v.Reflect().Method(m.Index).Call([]reflect.Value{})[0].Bytes()
+					bytes = []byte(v.Reflect().Method(m.Index).Call([]reflect.Value{})[0].String())
 				} else if m, ok := v.typ.Reflect().MethodByName("String"); ok {
-					bytes = v.Reflect().Method(m.Index).Call([]reflect.Value{})[0].Bytes()
+					bytes = []byte(v.Reflect().Method(m.Index).Call([]reflect.Value{})[0].String())
 				} else {
 					bytes = []byte(v.typ.NameShort())
 				}
 			}
 			return
 		}
+	}
+	if v.Kind() == Pointer {
+		return m.recursiveValue(v.Elem(), ancestry)
 	}
 	return nil, false
 }

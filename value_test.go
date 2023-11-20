@@ -5,6 +5,7 @@
 package gotype
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -21,7 +22,28 @@ var config = &test.Config{
 	Msg:         "%s",
 }
 
+type struct1 struct {
+	Name  string
+	Child *struct2
+}
+
+func (s struct1) String() string {
+	return s.Name
+}
+
+type struct2 struct {
+	Name   string
+	Parent *struct1
+}
+
 func TestTest(t *testing.T) {
+	// allow for method checking on non-struct types?
+	// add setting for checking marshal method overides
+	s1 := struct1{Name: "Parent"}
+	s2 := struct2{Name: "Child", Parent: &s1}
+	s1.Child = &s2
+	JsonMarshaller.RecursiveName = true
+	fmt.Println(JsonMarshaller.Marshal(s1).String())
 }
 
 func TestAll(t *testing.T) {
