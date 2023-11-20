@@ -5,6 +5,7 @@
 package gotype
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -22,6 +23,19 @@ var config = &test.Config{
 }
 
 func TestTest(t *testing.T) {
+	d := map[string][]map[string]string{
+		"test": {
+			{"test": "test", "test2": "test2"},
+			{"test": "test", "test2": "test2"},
+		},
+		"test2": {
+			{"test": "test", "test2": "test2"},
+			{"test": "test", "test2": "test2"},
+		},
+	}
+	m := YamlMarshaller
+	m.Init()
+	fmt.Println(m.Marshal(d).String())
 }
 
 func TestAll(t *testing.T) {

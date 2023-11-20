@@ -441,10 +441,6 @@ func (m *Marshaller) marshalFunc(v VALUE) {
 }
 
 func (m *Marshaller) marshalInterface(v VALUE, ancestry ...ancestor) {
-	if *(*unsafe.Pointer)(v.ptr) == nil {
-		m.ToBuffer(m.Null)
-		return
-	}
 	v = v.SetType()
 	if v.Kind() != Interface {
 		m.marshal(v, ancestry...)
@@ -690,14 +686,6 @@ func (m *Marshaller) itemOf(ancestry []ancestor) KIND {
 	return Invalid
 }
 
-func (m *Marshaller) marshalKey(delim, k []byte) {
-	var q []byte
-	if m.QuotedKey {
-		q = m.quote
-	}
-	m.SetBuffer(m.buffer, delim, q, k, q, m.keyEnd)
-}
-
 func (m *Marshaller) marshalEmptySlice() {
 	if !m.hasBrackets {
 		m.ToBuffer(m.Null)
@@ -715,14 +703,14 @@ func (m *Marshaller) marshalEmptyMap() {
 }
 
 func (m *Marshaller) marshalSliceStart(v VALUE, a []ancestor) (delim []byte, end []byte, ancestry []ancestor) {
-	start, delim, end := m.marshalSliceComponents(v, ancestry)
+	start, delim, end := m.marshalSliceComponents(v, a)
 	m.ToBuffer(start)
 	m.IncDepth()
 	return delim, end, append([]ancestor{{v.typ, v.Uintptr()}}, a...)
 }
 
 func (m *Marshaller) marshalMapStart(v VALUE, a []ancestor) (delim []byte, end []byte, ancestry []ancestor) {
-	start, delim, end := m.marshalMapComponents(v, ancestry)
+	start, delim, end := m.marshalMapComponents(v, a)
 	m.ToBuffer(start)
 	m.IncDepth()
 	return delim, end, append([]ancestor{{v.typ, v.Uintptr()}}, a...)
