@@ -476,7 +476,17 @@ func (v VALUE) IsZero() bool {
 
 // IsNil returns true if VALUE is nil
 func (v VALUE) IsNil() bool {
-	return v.Reflect().IsNil()
+	if v.ptr == nil {
+		return true
+	}
+	switch v.Kind() {
+	case Pointer:
+		return v.Elem().IsNil()
+	case Slice, Interface:
+		return *(*unsafe.Pointer)(v.ptr) == nil
+	}
+	return false
+	//return v.Reflect().IsNil()
 }
 
 // ------------------------------------------------------------ /

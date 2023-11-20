@@ -61,6 +61,7 @@ type Marshaller struct {
 	RecursiveName    bool // when true, include name, string or type of recursive struct value in marshalling, otherwise, exclude all
 	UnmarshalTyped   bool // when true, unmarshal to typed values (int, float64, bool, string) instead of just strings
 	MarshalMethods   bool // when true, marshal structs with a Marshal method by calling the method
+	IncludeNulls     bool // when true, marshal nil values as null, otherwise, exclude them
 	// marshaller cache
 	space      []byte
 	quote      []byte
@@ -324,14 +325,7 @@ func (v VALUE) Marshal(m *Marshaller) *Marshaller {
 }
 
 func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
-	/* fmt.Println("marshal called on", v.typ, "with ancesty of:", len(ancestry), "->")
-	if len(ancestry) > 0 {
-		fmt.Println(ancestry[0].typ)
-	}
-	if v.typ.Name() == "gotype.struct2" {
-		os.Exit(1)
-	} */
-	if v.ptr == nil {
+	if v.IsNil() {
 		m.ToBuffer(m.Null)
 		return
 	}
@@ -430,36 +424,16 @@ func (m *Marshaller) marshalNum(v VALUE) {
 
 func (m *Marshaller) marshalArray(a ARRAY, ancestry ...ancestor) {
 	if a.Len() == 0 {
-		if !m.hasBrackets {
-			m.ToBuffer(m.Null)
-			return
-		}
-		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
+		m.marshalEmptySlice()
 		return
 	}
-	start, delim, end := m.marshalSliceComponents((VALUE)(a), ancestry)
-	ancestry = append([]ancestor{{a.typ, uintptr(a.ptr)}}, ancestry...)
-	m.ToBuffer(start)
-	m.IncDepth()
-	j := 0
+	delim, end, ancestry := m.marshalSliceStart((VALUE)(a), ancestry)
+	var j int
 	a.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		b, recursive := m.recursiveValue(v, ancestry)
-		if recursive && b == nil {
-			return
-		}
-		if j > 0 {
-			m.ToBuffer(delim)
-		}
-		j++
-		if b != nil {
-			m.marshalBytes(b)
-			return
-		}
-		m.marshal(v, ancestry...)
+		j = m.marshalElem(j, delim, nil, v, ancestry)
 		return
 	})
-	m.DecDepth()
-	m.ToBuffer(end)
+	m.marshalEnd(end)
 }
 
 func (m *Marshaller) marshalFunc(v VALUE) {
@@ -486,76 +460,30 @@ func (m *Marshaller) marshalPointer(v VALUE, ancestry ...ancestor) {
 
 func (m *Marshaller) marshalMap(hm MAP, ancestry ...ancestor) {
 	if hm.Len() == 0 {
-		if !m.hasBrackets {
-			m.ToBuffer(m.Null)
-			return
-		}
-		m.ToBuffer(AppendBytes(m.MapStart, m.MapEnd))
+		m.marshalEmptyMap()
 		return
 	}
-	start, delim, end := m.marshalMapComponents((VALUE)(hm), ancestry)
-	ancestry = append([]ancestor{{hm.typ, uintptr(hm.ptr)}}, ancestry...)
-	m.ToBuffer(start)
-	m.IncDepth()
-	j := 0
+	delim, end, ancestry := m.marshalMapStart((VALUE)(hm), ancestry)
+	var j int
 	hm.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		b, recursive := m.recursiveValue(v, ancestry)
-		if recursive && b == nil {
-			return
-		}
-		if j > 0 {
-			m.marshalKey(delim, []byte(k))
-		} else {
-			m.marshalKey(nil, []byte(k))
-		}
-		j++
-		if b != nil {
-			m.marshalBytes(b)
-			return
-		}
-		m.marshal(v, ancestry...)
+		j = m.marshalElem(j, delim, []byte(k), v, ancestry)
 		return
 	})
-	m.DecDepth()
-	m.ToBuffer(end)
+	m.marshalEnd(end)
 }
 
 func (m *Marshaller) marshalSlice(s SLICE, ancestry ...ancestor) {
-	if *(*unsafe.Pointer)(s.ptr) == nil {
-		m.ToBuffer(m.Null)
-		return
-	}
 	if s.Len() == 0 {
-		if !m.hasBrackets {
-			m.ToBuffer(m.Null)
-			return
-		}
-		m.ToBuffer(append(m.SliceStart, m.SliceEnd...))
+		m.marshalEmptySlice()
 		return
 	}
-	start, delim, end := m.marshalSliceComponents((VALUE)(s), ancestry)
-	ancestry = append([]ancestor{{s.typ, uintptr(s.ptr)}}, ancestry...)
-	m.ToBuffer(start)
-	m.IncDepth()
-	j := 0
+	delim, end, ancestry := m.marshalSliceStart((VALUE)(s), ancestry)
+	var j int
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		b, recursive := m.recursiveValue(v, ancestry)
-		if recursive && b == nil {
-			return
-		}
-		if j > 0 {
-			m.ToBuffer(delim)
-		}
-		j++
-		if b != nil {
-			m.marshalBytes(b)
-			return
-		}
-		m.marshal(v, ancestry...)
+		j = m.marshalElem(j, delim, nil, v, ancestry)
 		return
 	})
-	m.DecDepth()
-	m.ToBuffer(end)
+	m.marshalEnd(end)
 }
 
 func (m *Marshaller) marshalString(s string) {
@@ -578,42 +506,20 @@ func (m *Marshaller) marshalStruct(s STRUCT, ancestry ...ancestor) {
 		return
 	}
 	if s.Len() == 0 {
-		if !m.hasBrackets {
-			m.ToBuffer(m.Null)
-			return
-		}
-		m.ToBuffer(append(m.MapStart, m.MapEnd...))
+		m.marshalEmptyMap()
 		return
 	}
-	start, delim, end := m.marshalMapComponents((VALUE)(s), ancestry)
-	ancestry = append([]ancestor{{s.typ, (VALUE)(s).Uintptr()}}, ancestry...)
+	delim, end, ancestry := m.marshalMapStart((VALUE)(s), ancestry)
 	m.marshalStructTag(s)
-	m.ToBuffer(start)
-	m.IncDepth()
 	j, has, keys := 0, m.hasTag[s.typ], m.tagKeys[s.typ]
 	s.ForEach(func(i int, k string, v VALUE) (brake bool) {
-		b, recursive := m.recursiveValue(v, ancestry)
-		if recursive && b == nil {
-			return
-		}
 		if has {
 			k = keys[i]
 		}
-		if j > 0 {
-			m.marshalKey(delim, []byte(k))
-		} else {
-			m.marshalKey(nil, []byte(k))
-		}
-		j++
-		if b != nil {
-			m.marshalBytes(b)
-			return
-		}
-		m.marshal(v, ancestry...)
+		j = m.marshalElem(j, delim, []byte(k), v, ancestry)
 		return
 	})
-	m.DecDepth()
-	m.ToBuffer(end)
+	m.marshalEnd(end)
 }
 
 func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
@@ -790,6 +696,74 @@ func (m *Marshaller) marshalKey(delim, k []byte) {
 		q = m.quote
 	}
 	m.SetBuffer(m.buffer, delim, q, k, q, m.keyEnd)
+}
+
+func (m *Marshaller) marshalEmptySlice() {
+	if !m.hasBrackets {
+		m.ToBuffer(m.Null)
+		return
+	}
+	m.SetBuffer(m.buffer, m.SliceStart, m.SliceEnd)
+}
+
+func (m *Marshaller) marshalEmptyMap() {
+	if !m.hasBrackets {
+		m.ToBuffer(m.Null)
+		return
+	}
+	m.SetBuffer(m.buffer, m.MapStart, m.MapEnd)
+}
+
+func (m *Marshaller) marshalSliceStart(v VALUE, a []ancestor) (delim []byte, end []byte, ancestry []ancestor) {
+	start, delim, end := m.marshalSliceComponents(v, ancestry)
+	m.ToBuffer(start)
+	m.IncDepth()
+	return delim, end, append([]ancestor{{v.typ, v.Uintptr()}}, a...)
+}
+
+func (m *Marshaller) marshalMapStart(v VALUE, a []ancestor) (delim []byte, end []byte, ancestry []ancestor) {
+	start, delim, end := m.marshalMapComponents(v, ancestry)
+	m.ToBuffer(start)
+	m.IncDepth()
+	return delim, end, append([]ancestor{{v.typ, v.Uintptr()}}, a...)
+}
+
+func (m *Marshaller) marshalElem(i int, delim, k []byte, v VALUE, ancestry []ancestor) int {
+	if i == 0 {
+		delim = nil
+	}
+	if k != nil {
+		var q []byte
+		if m.QuotedKey {
+			q = m.quote
+		}
+		k = AppendBytes(q, k, q, m.keyEnd)
+	}
+	if v.IsNil() {
+		if m.IncludeNulls {
+			i++
+			m.SetBuffer(m.buffer, delim, k, m.Null)
+			return i
+		}
+		return i
+	}
+	b, recursive := m.recursiveValue(v, ancestry)
+	if recursive && b == nil {
+		return i
+	}
+	i++
+	m.SetBuffer(m.buffer, delim, k)
+	if b != nil {
+		m.marshalBytes(b)
+	} else {
+		m.marshal(v, ancestry...)
+	}
+	return i
+}
+
+func (m *Marshaller) marshalEnd(end []byte) {
+	m.ToBuffer(end)
+	m.DecDepth()
 }
 
 func (m *Marshaller) IncDepth() {
