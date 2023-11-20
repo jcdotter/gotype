@@ -60,6 +60,7 @@ type Marshaller struct {
 	QuotedNull       bool // when true, marshal null with quotes
 	RecursiveName    bool // when true, include name, string or type of recursive struct value in marshalling, otherwise, exclude all
 	UnmarshalTyped   bool // when true, unmarshal to typed values (int, float64, bool, string) instead of just strings
+	MarshalMethods   bool // when true, marshal structs with a Marshal method by calling the method
 	// marshaller cache
 	space      []byte
 	quote      []byte
@@ -619,6 +620,9 @@ func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
 	if s.typ == TypeOf(TYPE{}) {
 		m.marshalString((*TYPE)(s.ptr).Name())
 		return true
+	}
+	if !m.MarshalMethods {
+		return false
 	}
 	if m.hasMethod != nil {
 		if has, ok := m.hasMethod[s.typ]; ok {
