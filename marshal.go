@@ -14,6 +14,12 @@ import (
 )
 
 // ------------------------------------------------------------ /
+// Speed:
+// 1. Pass structure parts to children and append intents, rather than using ancestry
+// 2. encoding pkg does not handle recursive structures
+// ------------------------------------------------------------ /
+
+// ------------------------------------------------------------ /
 // MARSHALLER IMPLEMENTATION
 // a generic marshaller for serializing and deserializing
 // golang values to and from []byte in a specific format
@@ -28,6 +34,7 @@ type Marshaller struct {
 	value       any    // the value being marshalled
 	buffer      []byte // the buffer being marshalled to
 	len         int    // the length of the buffer
+	availBuf    int    // the available buffer space
 	// marshalling syntax
 	Type              string // the type of marshaller. json, yaml, etc.
 	Space             []byte // the space characters
@@ -58,17 +65,19 @@ type Marshaller struct {
 	QuotedNum        bool // when true, marshal numbers with quotes
 	QuotedBool       bool // when true, marshal bools with quotes
 	QuotedNull       bool // when true, marshal null with quotes
-	RecursiveName    bool // when true, include name, string or type of recursive struct value in marshalling, otherwise, exclude all
+	RecursiveName    bool // when true, include name, string or type of recursive value in marshalling, otherwise, exclude all recursion
 	UnmarshalTyped   bool // when true, unmarshal to typed values (int, float64, bool, string) instead of just strings
 	MarshalMethods   bool // when true, marshal structs with a Marshal method by calling the method
 	ExcludeZeros     bool // when true, exclude zero and nil values from marshalling
 	// marshaller cache
-	space      []byte
-	quote      []byte
-	escape     []byte
-	valEnd     []byte
-	keyEnd     []byte
-	ivalEnd    []byte
+	space   []byte
+	quote   []byte
+	escape  []byte
+	valEnd  []byte
+	keyEnd  []byte
+	ivalEnd []byte
+	/* sParts     [3][]byte
+	mParts     [3][]byte */
 	sliceParts map[string][3][]byte
 	mapParts   map[string][3][]byte
 	hasTag     map[*TYPE]bool
@@ -216,7 +225,8 @@ func (m *Marshaller) New() *Marshaller {
 }
 
 func (m *Marshaller) Reset() {
-	m.buffer = nil
+	m.availBuf = 10000
+	m.buffer = make([]byte, 0, m.availBuf)
 	m.cursor = 0
 	m.curIndent = 0
 	m.len = 0
@@ -340,7 +350,7 @@ func (m *Marshaller) marshal(v VALUE, ancestry ...ancestor) {
 	switch v.KIND() {
 	case Bool:
 		m.marshalBool(v.Bool())
-	case Int, Int8, Int16, Int32, Int64, Uint, Uint8, Uint16, Uint32, Uint64, Float32, Float64, Complex64, Complex128:
+	case Int, Int8, Int16, Int32, Int64, Uint, Uint8, Uint16, Uint32, Uint64, Uintptr, Float32, Float64, Complex64, Complex128:
 		m.marshalNum(v)
 	case Array:
 		m.marshalArray((ARRAY)(v), ancestry...)
@@ -381,8 +391,9 @@ func (m *Marshaller) marshalBool(b bool) {
 		bytes = []byte("false")
 	}
 	if m.QuotedBool {
-		q := m.Quote[:1]
-		bytes = append(q, append(bytes, q...)...)
+		//m.SetBuffer(m.buffer, m.quote, bytes, m.quote)
+		m.buffer = append(append(append(m.buffer, m.quote...), bytes...), m.quote...)
+		return
 	}
 	m.ToBuffer(bytes)
 }
@@ -424,8 +435,9 @@ func (m *Marshaller) marshalNum(v VALUE) {
 		panic("cannot marshal type '" + v.typ.String() + "'")
 	}
 	if m.QuotedNum {
-		q := m.Quote[:1]
-		bytes = append(q, append(bytes, q...)...)
+		//m.SetBuffer(m.buffer, m.quote, bytes, m.quote)
+		m.buffer = append(append(append(m.buffer, m.quote...), bytes...), m.quote...)
+		return
 	}
 	m.ToBuffer(bytes)
 }
@@ -454,7 +466,7 @@ func (m *Marshaller) marshalInterface(v VALUE, ancestry ...ancestor) {
 		m.marshal(v, ancestry...)
 		return
 	}
-	m.Marshal(fmt.Sprint(v.Interface()))
+	m.marshalString(fmt.Sprint(v.Interface()))
 }
 
 func (m *Marshaller) marshalPointer(v VALUE, ancestry ...ancestor) {
@@ -499,8 +511,8 @@ func (m *Marshaller) marshalString(s string) {
 		}
 	}
 	if quoted {
-		q := m.Quote[:1]
-		b = append(append(q, BYTES(b).Escaped(q[0], m.Escape[0])...), q...)
+		m.SetBuffer(m.buffer, m.quote, BYTES(b).Escaped(m.quote[0], m.escape[0]), m.quote)
+		return
 	}
 	m.ToBuffer(b)
 }
@@ -656,6 +668,8 @@ func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start [
 		start, delim, end = m.bracketlessMapComponents(ancestry)
 	}
 	m.mapParts[path] = [3][]byte{start, delim, end}
+	/* fmt.Println("mapParts", m.mapParts)
+	os.Exit(1) */
 	return
 }
 
@@ -682,14 +696,22 @@ func (m *Marshaller) bracketlessMapComponents(ancestry []ancestor) (start []byte
 }
 
 func (m *Marshaller) itemOf(ancestry []ancestor) KIND {
-	if ancestry != nil {
-		k := ancestry[0].typ.Kind()
-		if k == Map || k == Struct {
-			return Map
+	k := m.marshalNonPtrParent(ancestry, 0)
+	if k == Map || k == Struct {
+		return Map
+	}
+	if (k == Slice || k == Array) && m.SliceItem != nil {
+		return Slice
+	}
+	return Invalid
+}
+
+func (m *Marshaller) marshalNonPtrParent(ancestry []ancestor, pos int) KIND {
+	if len(ancestry) > pos {
+		if k := ancestry[pos].typ.Kind(); k != Pointer {
+			return k
 		}
-		if (k == Slice || k == Array) && m.SliceItem != nil {
-			return Slice
-		}
+		return m.marshalNonPtrParent(ancestry, pos+1)
 	}
 	return Invalid
 }
@@ -729,16 +751,19 @@ func (m *Marshaller) marshalElem(i int, delim, k []byte, v VALUE, ancestry []anc
 		delim = nil
 	}
 	if k != nil {
-		var q []byte
 		if m.QuotedKey {
-			q = m.quote
+			//k = AppendBytes(m.quote, k, m.quote, m.keyEnd)
+			k = append(append(append(m.quote, k...), m.quote...), m.keyEnd...)
+		} else {
+			//k = AppendBytes(k, m.keyEnd)
+			k = append(k, m.keyEnd...)
 		}
-		k = AppendBytes(q, k, q, m.keyEnd)
 	}
 	if v.IsZero() {
 		if !m.ExcludeZeros {
 			i++
-			m.SetBuffer(m.buffer, delim, k, m.Null)
+			//m.SetBuffer(m.buffer, delim, k, m.Null)
+			m.ToBuffer(append(append(delim, k...), m.Null...))
 			return i
 		}
 		return i
@@ -748,7 +773,8 @@ func (m *Marshaller) marshalElem(i int, delim, k []byte, v VALUE, ancestry []anc
 		return i
 	}
 	i++
-	m.SetBuffer(m.buffer, delim, k)
+	//m.SetBuffer(m.buffer, delim, k)
+	m.ToBuffer(append(delim, k...))
 	if b != nil {
 		m.marshalBytes(b)
 	} else {
@@ -781,7 +807,8 @@ func (m *Marshaller) setIndent() {
 }
 func (m *Marshaller) ToBuffer(b []byte) {
 	if b != nil {
-		m.buffer = AppendBytes(m.buffer, b)
+		//m.buffer = AppendBytes(m.buffer, b)
+		m.buffer = append(m.buffer, b...)
 		m.len = len(m.buffer)
 	}
 }
@@ -835,7 +862,9 @@ func (m *Marshaller) ancestryPath(v VALUE, ancestry []ancestor) (path string, ha
 	}
 	path += m.ancestryPathVal(elKind) + m.ancestryPathVal(v.Kind())
 	for _, a := range ancestry {
-		path += m.ancestryPathVal(a.typ.Kind())
+		if k := a.typ.Kind(); k != Pointer {
+			path += m.ancestryPathVal(k)
+		}
 	}
 	return
 }

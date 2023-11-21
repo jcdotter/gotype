@@ -5,6 +5,7 @@
 package gotype
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 )
@@ -42,6 +43,16 @@ func BenchmarkMarshaller(b *testing.B) {
 				v.Value.Marshal(JsonMarshaller)
 			}
 		})
+		/* b.Run(STRING(v.Key).Width(35)+"-Encode", func(b *testing.B) {
+			val := v.Value.Interface()
+			for i := 0; i < b.N; i++ {
+				//json.Marshal(val)
+				j, _ := json.Marshal(val)
+				var b bytes.Buffer
+				json.Indent(&b, j, "", "  ")
+				//fmt.Println(b.String())
+			}
+		}) */
 		/* b.Run(STRING(v.Key).Width(35)+"-DeSerial", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				STRING(s).UnmarshalJson()
@@ -53,6 +64,45 @@ func BenchmarkMarshaller(b *testing.B) {
 			}
 		}) */
 	}
+}
+
+func BenchmarkYamlMarshaller(b *testing.B) {
+	//l := []
+	//v := ValueOf(models)
+	//m := JsonMarshaller.New()
+	/* m.Format = true
+	m.Init() */
+	for i := 0; i < b.N; i++ {
+		//m.Marshal(models)
+		json.Marshal(models)
+		//m.marshalSliceComponents(v, nil)
+		/* m.marshalMapComponents(v, nil)
+		m.marshalMapComponents(v, nil)
+		m.marshalMapComponents(v, nil) */
+	}
+}
+
+func BenchmarkAppend(b *testing.B) {
+	a := []byte("") //make([]byte, 0, 10000)
+	s := []byte(" ")
+	b.Run("append to cap", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			a = append(a, s...)
+		}
+	})
+	a = s
+	b.Run("append", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			a = append(append(append(a, s...), s...), s...)
+		}
+	})
+	a = s
+	b.Run("append bytes", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			//a = AppendBytes(a, s)
+			a = append(a, s...)
+		}
+	})
 }
 
 func BenchmarkEncode(b *testing.B) {

@@ -5,6 +5,8 @@
 package gotype
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -22,6 +24,32 @@ var config = &test.Config{
 	Msg:         "%s",
 }
 
+type parent struct {
+	Name  string
+	Child *child
+}
+
+type child struct {
+	Name   string
+	Parent *parent
+}
+
+func TestRecursion(t *testing.T) {
+	p := &parent{
+		Name: "parent",
+		Child: &child{
+			Name: "child",
+		},
+	}
+	p.Child.Parent = p
+	j, e := json.Marshal(*p)
+	fmt.Println(e)
+	fmt.Println(string(j))
+	var b bytes.Buffer
+	json.Indent(&b, j, "", "  ")
+	fmt.Println(b.String())
+}
+
 func TestTest(t *testing.T) {
 	/* d := map[string][]map[string]string{
 		"test": {
@@ -33,7 +61,7 @@ func TestTest(t *testing.T) {
 			{"test": "test", "test2": "test2"},
 		},
 	} */
-	d := []map[string]any{
+	d := []*map[string]any{
 		{
 			"Name": "test",
 			"Type": "test",
@@ -92,9 +120,8 @@ func TestTest(t *testing.T) {
 	m := YamlMarshaller
 	s := m.Marshal(d).String()
 	fmt.Println(s)
-	/* l := m.Unmarshal([]byte(s)).Slice()
-	fmt.Println(m.Marshal(l).String()) */
 	l := m.Unmarshal([]byte(s)).Slice()
+	fmt.Println(m.Marshal(l).String())
 	fmt.Println("yaml completed...")
 	m = JsonMarshaller
 	m.Format = true
@@ -105,6 +132,11 @@ func TestTest(t *testing.T) {
 	m.Format = true
 	m.Init()
 	fmt.Println(m.Marshal(d).String()) */
+
+	/* j, _ := json.Marshal(d)
+	var b bytes.Buffer
+	json.Indent(&b, j, "", "  ")
+	fmt.Println(b.String()) */
 }
 
 func TestZero(t *testing.T) {
