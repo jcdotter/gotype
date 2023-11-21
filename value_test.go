@@ -133,16 +133,6 @@ func TestZero(t *testing.T) {
 	fmt.Println(p, ValueOf(p).Pointer())
 }
 
-func TestKind(t *testing.T) {
-	/* i := 0
-	s := ""
-	l := map[string]any{
-		"one": i,
-		"two": s,
-	}
-	fmt.Println(ValueOf(l).DataElemKind()) */
-}
-
 func TestAll(t *testing.T) {
 	TestValueOf(t)
 	TestValueNew(t)

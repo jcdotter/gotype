@@ -216,11 +216,17 @@ func (m *Marshaller) New() *Marshaller {
 }
 
 func (m *Marshaller) Reset() {
-	m.buffer = []byte{}
+	m.buffer = nil
 	m.cursor = 0
 	m.curIndent = 0
 	m.len = 0
 	m.value = nil
+	m.sliceParts = map[string][3][]byte{}
+	m.mapParts = map[string][3][]byte{}
+	m.hasTag = nil
+	m.tagKeys = nil
+	m.hasMethod = nil
+	m.methods = nil
 }
 
 func (m *Marshaller) ResetCursor() {
@@ -594,20 +600,15 @@ func (m *Marshaller) marshalSliceComponents(v VALUE, ancestry []ancestor) (start
 		return m.SliceStart, m.ValEnd, m.SliceEnd
 	}
 	path, hasDataElem := m.ancestryPath(v, ancestry)
-	fmt.Println(path)
 	if parts, ok := m.sliceParts[path]; ok {
-		fmt.Println("  stored parts")
 		return parts[0], parts[1], parts[2]
 	}
 	switch {
 	case m.CascadeOnlyDeep && !hasDataElem:
-		fmt.Println("  inline parts")
 		start, delim, end = m.InlineSyntax.SliceStart, m.ivalEnd, m.InlineSyntax.SliceEnd
 	case m.hasBrackets:
-		fmt.Println("  formatted parts")
 		start, delim, end = m.formattedSliceComponents(ancestry)
 	default:
-		fmt.Println("  bracketless parts")
 		start, delim, end = m.bracketlessSliceComponents(ancestry)
 	}
 	m.sliceParts[path] = [3][]byte{start, delim, end}
@@ -643,20 +644,15 @@ func (m *Marshaller) marshalMapComponents(v VALUE, ancestry []ancestor) (start [
 		return m.MapStart, m.ValEnd, m.MapEnd
 	}
 	path, hasDataElem := m.ancestryPath(v, ancestry)
-	fmt.Println(path)
 	if parts, ok := m.mapParts[path]; ok {
-		fmt.Println("  stored parts")
 		return parts[0], parts[1], parts[2]
 	}
 	switch {
 	case m.Format && m.CascadeOnlyDeep && !hasDataElem:
-		fmt.Println("  inline parts")
 		start, delim, end = m.InlineSyntax.MapStart, m.ivalEnd, m.InlineSyntax.MapEnd
 	case m.hasBrackets:
-		fmt.Println("  formatted parts")
 		start, delim, end = m.formattedMapComponents(ancestry)
 	default:
-		fmt.Println("  bracketless parts")
 		start, delim, end = m.bracketlessMapComponents(ancestry)
 	}
 	m.mapParts[path] = [3][]byte{start, delim, end}
