@@ -542,9 +542,10 @@ func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
 	if m.methods != nil {
 		if index, ok := m.methods[s.typ]; ok {
 			if index != -1 {
-				m.bufferBytes([]byte((VALUE)(s).Reflect().Method(index).Call([]reflect.Value{})[0].String()))
+				m.bufferBytes([]byte((VALUE)(s).Reflect().Method(index).Call(nil)[0].String()))
+				return true
 			}
-			return true
+			return false
 		}
 	} else {
 		m.methods = map[*TYPE]int{s.typ: -1}
@@ -558,7 +559,7 @@ func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
 			if in == 1 && out > 0 {
 				if k := FromReflectType(meth.Type.Out(0)).KIND(); k == String || k == Bytes {
 					m.methods[s.typ] = meth.Index
-					m.bufferBytes([]byte((VALUE)(s).Reflect().Method(meth.Index).Call([]reflect.Value{})[0].String()))
+					m.bufferBytes([]byte((VALUE)(s).Reflect().Method(meth.Index).Call(nil)[0].String()))
 					return true
 				}
 			}
