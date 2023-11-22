@@ -70,20 +70,17 @@ type Marshaller struct {
 	MarshalMethods   bool // when true, marshal structs with a Marshal method by calling the method
 	ExcludeZeros     bool // when true, exclude zero and nil values from marshalling
 	// marshaller cache
-	space   byte
-	quote   byte
-	escape  byte
-	valEnd  []byte
-	keyEnd  []byte
-	ivalEnd []byte
-	/* sParts     [3][]byte
-	mParts     [3][]byte */
+	space      byte
+	quote      byte
+	escape     byte
+	valEnd     []byte
+	keyEnd     []byte
+	ivalEnd    []byte
 	sliceParts map[string][3][]byte
 	mapParts   map[string][3][]byte
 	hasTag     map[*TYPE]bool
 	tagKeys    map[*TYPE][]string
-	hasMethod  map[*TYPE]bool
-	methods    map[*TYPE]reflect.Value
+	methods    map[*TYPE]int
 }
 
 type InlineSyntax struct {
@@ -235,7 +232,6 @@ func (m *Marshaller) Reset() {
 	m.mapParts = map[string][3][]byte{}
 	m.hasTag = nil
 	m.tagKeys = nil
-	m.hasMethod = nil
 	m.methods = nil
 }
 
@@ -543,16 +539,15 @@ func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
 	if !m.MarshalMethods {
 		return false
 	}
-	if m.hasMethod != nil {
-		if has, ok := m.hasMethod[s.typ]; ok {
-			if has {
-				m.bufferBytes([]byte(m.methods[s.typ].Call([]reflect.Value{})[0].String()))
+	if m.methods != nil {
+		if index, ok := m.methods[s.typ]; ok {
+			if index != -1 {
+				m.bufferBytes([]byte((VALUE)(s).Reflect().Method(index).Call([]reflect.Value{})[0].String()))
 			}
-			return has
+			return true
 		}
 	} else {
-		m.hasMethod = map[*TYPE]bool{s.typ: false}
-		m.methods = map[*TYPE]reflect.Value{}
+		m.methods = map[*TYPE]int{s.typ: -1}
 	}
 	n := STRING(m.Type[:1]).ToUpper() + m.Type[1:]
 	methods := []string{n, "Marshal" + n}
@@ -562,10 +557,8 @@ func (m *Marshaller) marshaltStructByMethod(s STRUCT) bool {
 			in, out := meth.Type.NumIn(), meth.Type.NumOut()
 			if in == 1 && out > 0 {
 				if k := FromReflectType(meth.Type.Out(0)).KIND(); k == String || k == Bytes {
-					m.hasMethod[s.typ] = true
-					m.methods[s.typ] = (VALUE)(s).Reflect().Method(meth.Index)
-					b := []byte(m.methods[s.typ].Call([]reflect.Value{})[0].String())
-					m.bufferBytes(b)
+					m.methods[s.typ] = meth.Index
+					m.bufferBytes([]byte((VALUE)(s).Reflect().Method(meth.Index).Call([]reflect.Value{})[0].String()))
 					return true
 				}
 			}
