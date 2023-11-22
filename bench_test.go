@@ -5,6 +5,7 @@
 package gotype
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 	"time"
@@ -31,29 +32,36 @@ func BenchmarkSerialize(b *testing.B) {
 }
 
 func BenchmarkMarshaller(b *testing.B) {
-	//var s string
+	var s string
+	var j []byte
 	for _, v := range getTestVarsGmap() {
-		/* b.Run(STRING(v.Key).Width(35)+"-Serial", func(b *testing.B) {
+		b.Run(STRING(v.Key).Width(35)+"-Encode", func(b *testing.B) {
+			val := v.Value.Interface()
 			for i := 0; i < b.N; i++ {
-				v.Value.json()
+				//json.Marshal(val)
+				j, _ = json.Marshal(val)
+				var b bytes.Buffer
+				json.Indent(&b, j, "", "  ")
 			}
-		}) */
+		})
+		b.Run(STRING(v.Key).Width(35)+"-Serial", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				//v.Value.json()
+				s = v.Value.json()
+			}
+		})
 		b.Run(STRING(v.Key).Width(35)+"-Marshl", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				v.Value.Marshal(JsonMarshaller)
 			}
 		})
-		/* b.Run(STRING(v.Key).Width(35)+"-Encode", func(b *testing.B) {
-			val := v.Value.Interface()
+		p := v.Value.typ.PtrType().New().Interface()
+		b.Run(STRING(v.Key).Width(35)+"-Decode", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				//json.Marshal(val)
-				j, _ := json.Marshal(val)
-				var b bytes.Buffer
-				json.Indent(&b, j, "", "  ")
-				//fmt.Println(b.String())
+				json.Unmarshal(j, p)
 			}
-		}) */
-		/* b.Run(STRING(v.Key).Width(35)+"-DeSerial", func(b *testing.B) {
+		})
+		b.Run(STRING(v.Key).Width(35)+"-DeSerial", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				STRING(s).UnmarshalJson()
 			}
@@ -62,23 +70,7 @@ func BenchmarkMarshaller(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				JsonMarshaller.Unmarshal()
 			}
-		}) */
-	}
-}
-
-func BenchmarkYamlMarshaller(b *testing.B) {
-	//l := []
-	//v := ValueOf(models)
-	//m := JsonMarshaller.New()
-	/* m.Format = true
-	m.Init() */
-	for i := 0; i < b.N; i++ {
-		//m.Marshal(models)
-		json.Marshal(models)
-		//m.marshalSliceComponents(v, nil)
-		/* m.marshalMapComponents(v, nil)
-		m.marshalMapComponents(v, nil)
-		m.marshalMapComponents(v, nil) */
+		})
 	}
 }
 

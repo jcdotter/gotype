@@ -179,13 +179,13 @@ func (t *TYPE) DeepPtrElem() *TYPE {
 func (t *TYPE) IsData() bool {
 	k := t.Kind()
 	return k == Array || k == Chan || k == Map || k == Slice || k == Struct || k == Bytes || k == Interface ||
-		(k == Pointer && t.Elem().IsData())
+		(k == Pointer && t.DeepPtrElem().IsData())
 }
 
 func (t *TYPE) HasDataElem() bool {
 	switch t.Kind() {
 	case Pointer:
-		return t.Elem().HasDataElem()
+		return t.DeepPtrElem().HasDataElem()
 	case Struct:
 		return t.HasDataField()
 	case Interface:
