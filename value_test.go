@@ -206,23 +206,23 @@ func TestValueMarshalJson(t *testing.T) {
 		pa1 = [1]*string{&s}
 		pd1 = string_ptr_struct_single{&s}
 	)
-	gt.Equal(`"s"`, ValueOf(s).Marshal(JsonMarshaller).String(), "string")
-	gt.Equal(`["s","s"]`, ValueOf(a).Marshal(JsonMarshaller).String(), "array")
-	gt.Equal(`["s","s"]`, ValueOf(l).Marshal(JsonMarshaller).String(), "slice")
-	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).Marshal(JsonMarshaller).String(), "map")
-	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).Marshal(JsonMarshaller).String(), "struct")
-	gt.Equal(`["s"]`, ValueOf(a1).Marshal(JsonMarshaller).String(), "array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(d1).Marshal(JsonMarshaller).String(), "struct(1)")
+	gt.Equal(`"s"`, ValueOf(s).Marshal(JsonMarshaler).String(), "string")
+	gt.Equal(`["s","s"]`, ValueOf(a).Marshal(JsonMarshaler).String(), "array")
+	gt.Equal(`["s","s"]`, ValueOf(l).Marshal(JsonMarshaler).String(), "slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(m).Marshal(JsonMarshaler).String(), "map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(d).Marshal(JsonMarshaler).String(), "struct")
+	gt.Equal(`["s"]`, ValueOf(a1).Marshal(JsonMarshaler).String(), "array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(d1).Marshal(JsonMarshaler).String(), "struct(1)")
 
-	gt.Equal(`"s"`, ValueOf(&s).Marshal(JsonMarshaller).String(), "*string")
-	gt.Equal(`["s","s"]`, ValueOf(&pa).Marshal(JsonMarshaller).String(), "*array")
-	gt.Equal(`["s","s"]`, ValueOf(&pl).Marshal(JsonMarshaller).String(), "*slice")
-	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Marshal(JsonMarshaller).String(), "*map")
-	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Marshal(JsonMarshaller).String(), "*struct")
-	gt.Equal(`["s"]`, ValueOf(&pa1).Marshal(JsonMarshaller).String(), "*array(1)")
-	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Marshal(JsonMarshaller).String(), "*struct(1)")
+	gt.Equal(`"s"`, ValueOf(&s).Marshal(JsonMarshaler).String(), "*string")
+	gt.Equal(`["s","s"]`, ValueOf(&pa).Marshal(JsonMarshaler).String(), "*array")
+	gt.Equal(`["s","s"]`, ValueOf(&pl).Marshal(JsonMarshaler).String(), "*slice")
+	gt.Equal(`{"0":"s","1":"s"}`, ValueOf(&pm).Marshal(JsonMarshaler).String(), "*map")
+	gt.Equal(`{"V1":"s","V2":"s"}`, ValueOf(&pd).Marshal(JsonMarshaler).String(), "*struct")
+	gt.Equal(`["s"]`, ValueOf(&pa1).Marshal(JsonMarshaler).String(), "*array(1)")
+	gt.Equal(`{"V1":"s"}`, ValueOf(&pd1).Marshal(JsonMarshaler).String(), "*struct(1)")
 
-	ms := JsonMarshaller
+	ms := JsonMarshaler
 	ms.UnmarshalTyped = true
 	ms.Format = true
 	ms.Init()
@@ -241,7 +241,7 @@ func TestValueMarshalPrint(t *testing.T) {
 	err := "%!v(PANIC=String method: runtime error: invalid memory address or nil pointer dereference)"
 	for n, v := range getTestVars() {
 		val := ValueOf(v)
-		s := STRING(val.Marshal(JsonMarshaller).String())
+		s := STRING(val.Marshal(JsonMarshaler).String())
 		gt.False(s == "" || s.Contains(err), val.typ, n, s)
 	}
 }

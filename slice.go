@@ -199,7 +199,7 @@ func (s SLICE) ARRAY() ARRAY {
 
 // String returns gotype SLICE as a serialized json string
 func (s SLICE) String() string {
-	return (VALUE)(s).Marshal(JsonMarshaller).String()
+	return (VALUE)(s).Marshal(JsonMarshaler).String()
 }
 
 // json returns gotype SLICE as a serialized json string
@@ -355,7 +355,7 @@ func (s SLICE) ScanList(dest any, tags ...string) {
 
 // JSON returns gotype SLICE as gotype JSON
 func (s SLICE) JSON() JSON {
-	return (VALUE)(s).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(s).Marshal(JsonMarshaler).Bytes()
 }
 
 // COMPLEX SORTING

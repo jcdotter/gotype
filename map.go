@@ -279,7 +279,7 @@ func (m MAP) Encode() ENCODING {
 
 // Bytes returns gotype MAP as serialized json []byte
 func (m MAP) Bytes() []byte {
-	return (VALUE)(m).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(m).Marshal(JsonMarshaler).Bytes()
 }
 
 // Bool returns gotype MAP as bool
@@ -315,7 +315,7 @@ func (m MAP) MapValues() map[string]VALUE {
 
 // String returns gotype MAP as a serialized json string
 func (m MAP) String() string {
-	return (VALUE)(m).Marshal(JsonMarshaller).String()
+	return (VALUE)(m).Marshal(JsonMarshaler).String()
 }
 
 // json returns gotype MAP as a serialized json string
@@ -444,7 +444,7 @@ func (m MAP) Scan(dest any, tags ...string) {
 
 // JSON returns gotype MAP as gotype JSON
 func (m MAP) JSON() JSON {
-	return (VALUE)(m).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(m).Marshal(JsonMarshaler).Bytes()
 }
 
 // Gmap returns gotype MAP as gotype Gmap

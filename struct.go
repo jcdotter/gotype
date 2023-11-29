@@ -202,7 +202,7 @@ func (s STRUCT) Encode() ENCODING {
 
 // Bytes returns gotype STRUCT as serialized json []byte
 func (s STRUCT) Bytes() []byte {
-	return (VALUE)(s).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(s).Marshal(JsonMarshaler).Bytes()
 }
 
 // Bool returns gotype STRUCT as bool
@@ -238,7 +238,7 @@ func (s STRUCT) String() string {
 	if m, ok := s.ReflectType().MethodByName("String"); ok {
 		return s.ReflectValue().Method(m.Index).Call([]reflect.Value{})[0].String()
 	} else {
-		return (VALUE)(s).Marshal(JsonMarshaller).String()
+		return (VALUE)(s).Marshal(JsonMarshaler).String()
 	}
 }
 
@@ -326,7 +326,7 @@ func (s STRUCT) Struct() any {
 
 // JSON returns gotype STRUCT as gotype JSON
 func (s STRUCT) JSON() JSON {
-	return (VALUE)(s).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(s).Marshal(JsonMarshaler).Bytes()
 }
 
 // JsonByTag returns gotype STRUCT as gotype JSON using provided tag as keys

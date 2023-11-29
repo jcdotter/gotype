@@ -156,7 +156,7 @@ func (a ARRAY) Encode() ENCODING {
 
 // Bytes returns gotype ARRAY as serialized json []byte
 func (a ARRAY) Bytes() []byte {
-	return (VALUE)(a).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(a).Marshal(JsonMarshaler).Bytes()
 }
 
 // Bool returns gotype ARRAY as bool
@@ -206,7 +206,7 @@ func (a ARRAY) MAP() MAP {
 
 // String returns gotype ARRAY as a serialized json string
 func (a ARRAY) String() string {
-	return (VALUE)(a).Marshal(JsonMarshaller).String()
+	return (VALUE)(a).Marshal(JsonMarshaler).String()
 }
 
 // json returns gotype ARRAY as a serialized json string
@@ -242,5 +242,5 @@ func (a ARRAY) Scan(dest any) {
 
 // JSON returns gotype ARRAY as gotype JSON
 func (a ARRAY) JSON() JSON {
-	return (VALUE)(a).Marshal(JsonMarshaller).Bytes()
+	return (VALUE)(a).Marshal(JsonMarshaler).Bytes()
 }

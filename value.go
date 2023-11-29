@@ -428,7 +428,7 @@ func (v VALUE) setUnmatched(n VALUE) VALUE {
 	case String:
 		*(*string)(v.ptr) = n.String()
 	case Struct:
-		if matchStructType(v.typ, n.typ) {
+		if StructTypeMatch(v.typ, n.typ) {
 			typedmemmove(v.typ, v.ptr, n.ptr)
 		}
 	case Time:

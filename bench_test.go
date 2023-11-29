@@ -52,7 +52,7 @@ func BenchmarkMarshaller(b *testing.B) {
 		})
 		b.Run(STRING(v.Key).Width(35)+"-Marshl", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				v.Value.Marshal(JsonMarshaller)
+				v.Value.Marshal(JsonMarshaler)
 			}
 		})
 		p := v.Value.typ.PtrType().New().Interface()
@@ -68,7 +68,7 @@ func BenchmarkMarshaller(b *testing.B) {
 		})
 		b.Run(STRING(v.Key).Width(35)+"-UnMarshl", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				JsonMarshaller.Unmarshal()
+				JsonMarshaler.Unmarshal()
 			}
 		})
 	}

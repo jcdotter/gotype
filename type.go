@@ -228,6 +228,26 @@ func (t *TYPE) NameShort() string {
 	return string(n[n.LastIndexOf(".")+1:])
 }
 
+// SoftMatch evaluates whether typ matches the data type structure of TYPE t
+// although maybe not identical
+func (t *TYPE) SoftMatch(typ *TYPE) bool {
+	if k := t.Kind(); k == typ.Kind() {
+		switch k {
+		default:
+			return true
+		case Pointer, Array, Slice:
+			return t.Elem().SoftMatch(typ.Elem())
+		case Struct:
+			return StructTypeMatch(t, typ)
+		case Map:
+			tt := (*mapType)(unsafe.Pointer(t))
+			yy := (*mapType)(unsafe.Pointer(typ))
+			return tt.key.SoftMatch(yy.key) && tt.elem.SoftMatch(yy.elem)
+		}
+	}
+	return false
+}
+
 // ------------------------------------------------------------ /
 // STURCTURED TYPES
 // implementation of golang types for data structures:
@@ -482,15 +502,15 @@ func (t *TYPE) HasDataField() bool {
 	return has
 }
 
-// matchStructType compairs the structure of 2 structs
-func matchStructType(x, y *TYPE) bool {
-	if x.kind&kindMask == 25 && y.kind&kindMask == 25 {
+// StructTypeMatch compairs the structure of 2 structs
+func StructTypeMatch(x, y *TYPE) bool {
+	if x.IsStruct() && y.IsStruct() {
 		xfs := (*structType)(unsafe.Pointer(x)).fields
 		yfs := (*structType)(unsafe.Pointer(y)).fields
 		if len(xfs) == len(yfs) {
 			for i, xf := range xfs {
 				yf := yfs[i]
-				if xf.name.bytes != yf.name.bytes || xf.typ != yf.typ {
+				if xf.name.bytes != yf.name.bytes || !xf.typ.SoftMatch(yf.typ) {
 					return false
 				}
 			}
