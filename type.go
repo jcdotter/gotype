@@ -230,19 +230,32 @@ func (t *TYPE) NameShort() string {
 
 // SoftMatch evaluates whether typ matches the data type structure of TYPE t
 // although maybe not identical
-func (t *TYPE) SoftMatch(typ *TYPE) bool {
+func (t *TYPE) SoftMatch(typ *TYPE, ancestry ...*TYPE) bool {
+	if typ.InTypes(ancestry...) {
+		return true
+	}
+	ancestry = append(ancestry, t)
 	if k := t.Kind(); k == typ.Kind() {
 		switch k {
 		default:
 			return true
 		case Pointer, Array, Slice:
-			return t.Elem().SoftMatch(typ.Elem())
+			return t.Elem().SoftMatch(typ.Elem(), ancestry...)
 		case Struct:
-			return StructTypeMatch(t, typ)
+			return StructTypeMatch(t, typ, ancestry...)
 		case Map:
 			tt := (*mapType)(unsafe.Pointer(t))
 			yy := (*mapType)(unsafe.Pointer(typ))
-			return tt.key.SoftMatch(yy.key) && tt.elem.SoftMatch(yy.elem)
+			return tt.key.SoftMatch(yy.key, ancestry...) && tt.elem.SoftMatch(yy.elem, ancestry...)
+		}
+	}
+	return false
+}
+
+func (t *TYPE) InTypes(types ...*TYPE) bool {
+	for _, s := range types {
+		if t == s {
+			return true
 		}
 	}
 	return false
@@ -503,14 +516,14 @@ func (t *TYPE) HasDataField() bool {
 }
 
 // StructTypeMatch compairs the structure of 2 structs
-func StructTypeMatch(x, y *TYPE) bool {
+func StructTypeMatch(x, y *TYPE, ancestry ...*TYPE) bool {
 	if x.IsStruct() && y.IsStruct() {
 		xfs := (*structType)(unsafe.Pointer(x)).fields
 		yfs := (*structType)(unsafe.Pointer(y)).fields
 		if len(xfs) == len(yfs) {
 			for i, xf := range xfs {
 				yf := yfs[i]
-				if xf.name.bytes != yf.name.bytes || !xf.typ.SoftMatch(yf.typ) {
+				if xf.name.bytes != yf.name.bytes || !xf.typ.SoftMatch(yf.typ, ancestry...) {
 					return false
 				}
 			}
